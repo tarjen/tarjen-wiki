@@ -796,9 +796,9 @@
           btn.textContent = orig;
           btn.disabled = false;
         }, 2500);
-        // 保存成功 → 直接跳回主页，配了 Actions 的话几秒后刷新就有新表
-        showToast('✅ 已保存，跳回主页…');
-        setTimeout(() => { window.location.href = '../'; }, 600);
+        // 保存成功 → 等几秒让 workflow 跑完再回主页，带 ?_t 强制不读缓存
+        showToast('✅ 已保存，等几秒部署完跳回主页…');
+        setTimeout(() => { window.location.href = '../?_t=' + Date.now(); }, 4000);
       } catch (e) {
         showToast('保存失败：' + e.message, true);
         btn.textContent = orig;
