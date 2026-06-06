@@ -552,6 +552,14 @@
     }
 
     // ---------- 预览 ----------
+    // CSV 日期 (2024.11.24 / 2024.1.5 / 2024-11-24) → HTML5 date input (2024-11-24)
+    // 注意：HTML5 input 严格要求两数位月份/日期，"2024-1-5" 会被拒为无效值
+    function csvDateToInputValue(s) {
+      const m = /^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$/.exec((s || '').trim());
+      if (!m) return '';
+      return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    }
+
     function csvEscape(v) {
       v = (v || '').toString();
       if (/[",\n\r]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
@@ -788,10 +796,9 @@
           btn.textContent = orig;
           btn.disabled = false;
         }, 2500);
-        // 提示一下 CI 部署
-        if (confirm('已保存。要去 commit 页面看看吗？\n（如果配了 GitHub Actions 部署，等几秒刷新就能看到新表）')) {
-          window.open(result.commit?.html_url || `https://github.com/${GH_OWNER}/${GH_REPO}/commits/${GH_BRANCH}`, '_blank');
-        }
+        // 保存成功 → 直接跳回主页，配了 Actions 的话几秒后刷新就有新表
+        showToast('✅ 已保存，跳回主页…');
+        setTimeout(() => { window.location.href = '../'; }, 600);
       } catch (e) {
         showToast('保存失败：' + e.message, true);
         btn.textContent = orig;
@@ -896,8 +903,8 @@
       $('name').value = row.name;
       $('slug').value = row.slug;
       $('slug').dataset.touched = '1';
-      // 日期：CSV 是 2024.11.24，input type=date 要 2024-11-24
-      $('date').value = (row.date || '').replace(/\./g, '-');
+      // 日期：CSV 是 2024.11.24 (也接受 2024.1.5 / 2024-11-24)，input type=date 要 2024-11-24 (两数位)
+      $('date').value = csvDateToInputValue(row.date || '');
       $('total').value = clampInt(row.total, 1, 26, 13);
       // 题目状态：可能是 OOOOOOOOFOOOO 也可能是 O;O;O;.;Ø;O 形式
       // 兼容两种（虽然 sync.py 只输出 ; 分隔的）
