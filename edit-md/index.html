@@ -293,18 +293,26 @@
       $('btn-goto').style.display = '';
       $('btn-status').href = `../editor/?slug=${encodeURIComponent(slug)}`;
 
-      // 优先尝试从同源 fetch 加载（dev server / GitHub Pages 都支持）
-      try {
-        const res = await fetch(`../contests/${slug}.md`);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const text = await res.text();
-        ta.value = text;
-        original = text;
-        updatePreview();
-        setStatus('✓ 已加载', 'saved');
-        return;
-      } catch (e) {
-        // fetch 失败（file:// 协议或路径错），降级为提示用户从文件选
+      // 尝试多个源，按顺序试：
+      // 1. 同源 ../docs/contests/<slug>.md — dev server (mkdocs serve) 模式下可用
+      // 2. raw.githubusercontent.com — gh-pages 部署模式下可用（CORS *）
+      const sources = [
+        `../docs/contests/${slug}.md`,
+        `https://raw.githubusercontent.com/tarjen/tarjen-wiki/main/docs/contests/${slug}.md`,
+      ];
+      for (const url of sources) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const text = await res.text();
+          ta.value = text;
+          original = text;
+          updatePreview();
+          setStatus('✓ 已加载', 'saved');
+          return;
+        } catch (e) { /* 试下一个源 */ }
+      }
+      // 全部失败 → 降级为提示用户从文件选
       }
       // 降级：让用户选文件
       ta.value = `# ${slug}\n\n（无法从同源加载，请点下方按钮选 .md 文件）`;
