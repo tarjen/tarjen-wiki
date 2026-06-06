@@ -298,6 +298,7 @@ def create_placeholders(contests: list[Contest], *, dry_run: bool) -> list[str]:
             continue
         y, m, d = c.date.split(".")
         body = CONTEST_TEMPLATE.format(
+            slug=c.slug,
             name=c.name,
             date_iso=f"{int(y):04d}-{int(m):02d}-{int(d):02d}",
             link=c.link or "",
