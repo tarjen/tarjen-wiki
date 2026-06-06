@@ -150,6 +150,16 @@
     .stat-cell:nth-child(2) .stat-value { color: var(--c-fix); }
 
     .save-panel { border-left: 3px solid var(--c-O); }
+
+    /* QOJ 导入预览 */
+    .qoj-preview-table { width: 100%; border-collapse: collapse; margin-top: 0.5em; font-size: 0.92em; }
+    .qoj-preview-table th, .qoj-preview-table td {
+      padding: 0.4em 0.6em; border-bottom: 1px solid var(--border); text-align: left;
+    }
+    .qoj-preview-table th { font-weight: 600; color: var(--muted); }
+    .qoj-preview-table tr.preview-ac { background: rgba(46, 160, 67, 0.10); }
+    .qoj-preview-table tr.preview-tried { background: rgba(220, 50, 47, 0.08); }
+    .qoj-preview-table tr.preview-none td { color: var(--muted); }
     .save-actions {
       display: flex;
       gap: 0.5em;
@@ -272,6 +282,30 @@
           <input type="text" id="tags" placeholder="#icpc #regional #2024">
         </div>
       </div>
+    </div>
+
+    <h2>📥 从 QOJ 导入</h2>
+    <div class="card">
+      <p class="hint" style="margin-top: 0;">
+        粘 QOJ 比赛链接 + 你的 QOJ 用户名 → 点「导入」会触发 GitHub Actions 在服务端抓取你的比赛记录，
+        抓完点「填入表单」就能直接保存到 <code>contests.csv</code>。
+        整个过程在 GitHub 服务器跑，绕过 Cloudflare，浏览器零依赖。
+      </p>
+      <div class="row">
+        <div>
+          <label>QOJ 比赛 URL 或 ID <span class="hint">（例如 <code>https://qoj.ac/contest/2564</code> 或 <code>2564</code>）</span></label>
+          <input type="text" id="qoj-contest" placeholder="https://qoj.ac/contest/2564">
+        </div>
+        <div>
+          <label>QOJ 用户名</label>
+          <input type="text" id="qoj-user" placeholder="tarjen">
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5em;margin-top:1em;flex-wrap:wrap;align-items:center;">
+        <button class="btn primary" id="btn-qoj-fetch">📥 导入</button>
+        <span class="hint" id="qoj-status">没动</span>
+      </div>
+      <div id="qoj-preview" style="display:none;margin-top:1em;"></div>
     </div>
 
     <h2>💾 保存修改</h2>
@@ -715,6 +749,172 @@
 
     $('btn-save-github-table').addEventListener('click', saveToGithub);
     $('btn-exit-edit').addEventListener('click', exitEditMode);
+
+    // ---------- QOJ 导入 ----------
+    // 真·一键：浏览器触发 GitHub Actions → workflow 跑 qoj_sync.py → 写 cache 回 main
+    // 浏览器轮询 raw.githubusercontent.com 的 cache JSON 拿到结果 → 预览 → 填入
+    function parseQojContestId(s) {
+      s = (s || '').trim();
+      var m = /contest\/(\d+)/.exec(s);
+      if (m) return m[1];
+      if (/^\d+$/.test(s)) return s;
+      return '';
+    }
+    function qojStatusToCell(status, inContest) {
+      // O = 赛中过题, Ø = 赛后补过, ! = 尝试没过, . = 未做
+      if (status === 'AC') return inContest ? 'O' : 'Ø';
+      if (status === 'CE' || status === 'SE' || status === 'DGS' || status === '??') return '!';
+      // WA / TLE / RE / MLE / OLE / Sxx 统称"尝试没过"
+      if (status) return '!';
+      return '.';
+    }
+    function fillFormFromQoj(entry, contestId) {
+      // 清掉可能残留的编辑模式状态
+      if (editingSlug) {
+        var ok = confirm('当前在编辑模式，要覆盖表单吗？');
+        if (!ok) return;
+        exitEditMode();
+      }
+      $('name').value = entry.name || ('Contest ' + contestId);
+      $('slug').value = '';
+      $('slug').dataset.touched = '';
+      // 日期：从 start_time 拿 YYYY.M.D（QOJ 存的是 UTC ISO）
+      var d = '';
+      if (entry.start_time) {
+        var dt = new Date(entry.start_time);
+        if (!isNaN(dt.getTime())) {
+          d = dt.getFullYear() + '.' + (dt.getMonth() + 1) + '.' + dt.getDate();
+        }
+      }
+      $('date').value = d.replace(/\./g, '-');  // csvDateToInputValue 期望 - 分隔
+      // total
+      var total = (entry.problems || []).length || 13;
+      $('total').value = total;
+      // cells
+      var subForUser = (entry.submissions || {})[$('qoj-user').value.trim()] || {};
+      cells = (entry.problems || []).map(function (p) {
+        var s = subForUser[String(p.id)];
+        return qojStatusToCell(s && s.status, s && s.in_contest);
+      });
+      while (cells.length < 13) cells.push('.');
+      $('link').value = 'https://qoj.ac/contest/' + contestId;
+      // 标签：保留用户已写的，没写就默认加 #qoj
+      var curTags = $('tags').value.trim();
+      if (!/#qoj\b/i.test(curTags)) {
+        $('tags').value = (curTags ? curTags + ' ' : '') + '#qoj';
+      }
+      $('slug').value = slugify($('name').value);
+      $('slug').dataset.touched = '1';
+      renderCells();
+      updateAll();
+      snapshot();
+      W.toast('✅ 已从 QOJ 填入表单；点底部「💾 保存到 GitHub」即可');
+      $('btn-save-github-table').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    function renderQojPreview(entry, contestId) {
+      var username = $('qoj-user').value.trim();
+      var subForUser = (entry.submissions || {})[username] || {};
+      var html = '<div class="card" style="background: var(--bg);">';
+      html += '<strong>' + W.esc(entry.name) + '</strong>';
+      if (entry.start_time) html += ' <span class="hint">(' + W.esc(entry.start_time) + ' +' + (entry.duration_hours || 0) + 'h)</span>';
+      html += '<br><span class="hint">contest=' + W.esc(contestId) + '，' + ((entry.problems || []).length) + ' 题</span>';
+      html += '<table class="qoj-preview-table"><thead><tr><th>#</th><th>题目</th><th>状态</th><th>映射</th></tr></thead><tbody>';
+      (entry.problems || []).forEach(function (p, i) {
+        var s = subForUser[String(p.id)];
+        var status = s ? s.status : '—';
+        var inContest = s ? s.in_contest : false;
+        var mapped = qojStatusToCell(status, inContest);
+        var rowCls = s ? (status === 'AC' ? 'preview-ac' : 'preview-tried') : 'preview-none';
+        html += '<tr class="' + rowCls + '">';
+        html += '<td>' + W.esc(p.letter) + '</td>';
+        html += '<td>' + W.esc(p.title) + '</td>';
+        html += '<td>' + W.esc(status) + (s && s.ac_at ? ' <span class="hint">@' + W.esc(s.ac_at) + '</span>' : '') + '</td>';
+        html += '<td><strong>' + W.esc(mapped) + '</strong>' + (mapped === 'O' ? ' <span class="hint">(赛中过题)</span>' : mapped === 'Ø' ? ' <span class="hint">(赛后补过)</span>' : '') + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      html += '<div style="margin-top:0.8em;display:flex;gap:0.5em;flex-wrap:wrap;">';
+      html += '<button class="btn primary" id="btn-qoj-fill">✅ 填入表单</button>';
+      html += '<button class="btn sec tiny" id="btn-qoj-discard">丢弃</button>';
+      html += '</div></div>';
+      $('qoj-preview').innerHTML = html;
+      $('qoj-preview').style.display = 'block';
+      $('btn-qoj-fill').addEventListener('click', function () { fillFormFromQoj(entry, contestId); });
+      $('btn-qoj-discard').addEventListener('click', function () {
+        $('qoj-preview').style.display = 'none';
+        $('qoj-preview').innerHTML = '';
+        $('qoj-status').textContent = '已丢弃';
+      });
+    }
+    function pollQojCache(contestId, startedAt) {
+      // 每 5s 拉一次 raw.githubusercontent 的 cache JSON
+      // raw.githubusercontent 走 GitHub 自己的 CDN，不需要 PAT
+      var url = W.rawUrl('docs/data/qoj-cache.json') + '?_t=' + Date.now();
+      function tick() {
+        fetch(url, { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+            if (data && data.contests && data.contests[contestId] &&
+                data.contests[contestId].fetched_at >= startedAt) {
+              $('qoj-status').textContent = '✅ 抓到了，' + (data.contests[contestId].problems || []).length + ' 题';
+              $('btn-qoj-fetch').disabled = false;
+              $('btn-qoj-fetch').textContent = '📥 导入';
+              renderQojPreview(data.contests[contestId], contestId);
+              return;
+            }
+            // 60s 太久了，停下来让用户重试
+            if (Date.now() - startedAt > 120000) {
+              $('qoj-status').textContent = '⏰ 超时（2 分钟还没抓到）。GitHub Actions 是不是挂了？';
+              $('btn-qoj-fetch').disabled = false;
+              $('btn-qoj-fetch').textContent = '📥 导入';
+              return;
+            }
+            setTimeout(tick, 5000);
+          })
+          .catch(function () {
+            // raw 没就绪或网络抖：继续等
+            if (Date.now() - startedAt > 120000) {
+              $('qoj-status').textContent = '⏰ 超时（拉取 raw 失败）';
+              $('btn-qoj-fetch').disabled = false;
+              $('btn-qoj-fetch').textContent = '📥 导入';
+              return;
+            }
+            setTimeout(tick, 5000);
+          });
+      }
+      tick();
+    }
+    $('btn-qoj-fetch').addEventListener('click', function () {
+      var contestId = parseQojContestId($('qoj-contest').value);
+      var username = $('qoj-user').value.trim();
+      if (!contestId) { W.toast('先填 QOJ 比赛 URL 或 ID', true); return; }
+      if (!username) { W.toast('先填 QOJ 用户名', true); return; }
+      if (!W.getToken()) {
+        W.toast('先在「GitHub Token 配置」里保存 token', true);
+        var d = $('token-config'); if (d) { d.open = true; d.scrollIntoView(); }
+        return;
+      }
+      var btn = $('btn-qoj-fetch');
+      btn.disabled = true;
+      btn.textContent = '⏳ 触发 workflow…';
+      $('qoj-status').textContent = '正在 POST GitHub API…';
+      $('qoj-preview').style.display = 'none';
+      $('qoj-preview').innerHTML = '';
+      W.triggerWorkflow('qoj-import.yml', {
+        contest_id: contestId,
+        username: username,
+      }).then(function () {
+        var startedAt = new Date().toISOString();
+        $('qoj-status').textContent = '⏳ GitHub 正在抓取（最长 2 分钟）…';
+        btn.textContent = '⏳ 抓取中…';
+        pollQojCache(contestId, startedAt);
+      }).catch(function (e) {
+        $('qoj-status').textContent = '触发失败：' + e.message;
+        btn.disabled = false;
+        btn.textContent = '📥 导入';
+        W.toast('触发失败：' + e.message, true);
+      });
+    });
 
     W.wireTokenUI();
     W.wireBeforeUnload(isDirty, saveToGithub);
