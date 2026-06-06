@@ -57,10 +57,13 @@
   padding-right: 0;
 }
 
-/* 题目列（A/B/C/...）：等宽，1 个字符 */
+/* 题目列（A/B/C/...）：等宽，1 个字符
+   注意：Material 主题对所有 th 强制 min-width:100px（px2rem(100px)），
+   必须显式覆盖为 0，否则 1.6em 撑不开 */
 .md-typeset table:not([class]) th:nth-child(n+5),
 .md-typeset table:not([class]) td:nth-child(n+5) {
   width: 1.6em;
+  min-width: 0;
   text-align: center;
   padding-left: 0;
   padding-right: 0;
