@@ -1,27 +1,78 @@
-/* 总表微调：首列比赛名不挤压、单元格里符号居中紧凑 */
+/* ============================================================
+   总表紧凑化：目标是桌面端 1 页内放得下，不出现横向滚动
+   ============================================================ */
+
+/* 整个表小一号、单元格拉紧 */
+.md-typeset table:not([class]) {
+  font-size: 0.78em;
+  line-height: 1.35;
+  table-layout: fixed;
+}
+
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  padding: 0.35em 0.4em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 首列：比赛名。允许换行（不然 ACM-ICPC World Finals 那种长名撑爆），
+   最多 2 行，固定 12em 让表格总宽能控制住 */
 .md-typeset table:not([class]) th:first-child,
 .md-typeset table:not([class]) td:first-child {
-  min-width: 18em;
-  white-space: nowrap;
+  min-width: 0;
+  width: 12em;
+  max-width: 12em;
+  white-space: normal;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.3;
 }
 
-/* 让首列在窄屏下允许换行 */
-@media screen and (max-width: 60em) {
-  .md-typeset table:not([class]) th:first-child,
-  .md-typeset table:not([class]) td:first-child {
-    min-width: 0;
-    white-space: normal;
-  }
-}
-
-/* 总表里的题目列（A/B/C...）内容居中 */
-.md-typeset table.contest-summary td:nth-child(n+4) {
+/* 日期：紧凑 */
+.md-typeset table:not([class]) th:nth-child(2),
+.md-typeset table:not([class]) td:nth-child(2) {
+  width: 5em;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
-.md-typeset table.contest-summary th:nth-child(n+4) {
+/* 题数列：紧凑 */
+.md-typeset table:not([class]) th:nth-child(3),
+.md-typeset table:not([class]) td:nth-child(3) {
+  width: 4.5em;
   text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 铅笔列：1 个字符宽 */
+.md-typeset table:not([class]) th:nth-child(4),
+.md-typeset table:not([class]) td:nth-child(4) {
+  width: 1.6em;
+  text-align: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* 题目列（A/B/C/...）：等宽，1 个字符 */
+.md-typeset table:not([class]) th:nth-child(n+5),
+.md-typeset table:not([class]) td:nth-child(n+5) {
+  width: 1.6em;
+  text-align: center;
+  padding-left: 0;
+  padding-right: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 让表整体在窄屏允许横向滚动（保留基础可访问性），
+   桌面端通过上面的固定宽度自然 fit */
+@media screen and (max-width: 60em) {
+  .md-typeset table:not([class]) {
+    font-size: 0.85em;
+  }
 }
 
 /* 元信息表紧凑一点 */
