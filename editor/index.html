@@ -380,7 +380,7 @@
         <input type="number" id="total" value="13" min="1" max="26">
       </div>
       <div>
-        <label>通过数 <span class="hint">（自动算：O + O/）</span></label>
+        <label>通过数 <span class="hint">（自动算：O + Ø）</span></label>
         <input type="number" id="solved" value="0" min="0" readonly style="opacity:0.6">
       </div>
     </div>
@@ -651,36 +651,6 @@
         `会得到一张追加了当前这一行的完整 CSV，直接替换本地文件后 commit 即可。`;
     }
 
-    // ---------- 复制 / 下载 ----------
-    async function copyCsv() {
-      const text = csvRow(getRow());
-      try {
-        await navigator.clipboard.writeText(text);
-        showToast('已复制 CSV 行');
-      } catch {
-        const el = $('preview-csv');
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-        document.execCommand('copy');
-        sel.removeAllRanges();
-        showToast('已复制（兼容模式）');
-      }
-    }
-
-    function downloadFullCsv() {
-      const csv = buildFullCsv();
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'contests.csv';
-      a.click();
-      URL.revokeObjectURL(a.href);
-      showToast('已下载 contests.csv');
-    }
-
     // ---------- GitHub API 保存 ----------
     const GH_OWNER = 'tarjen';
     const GH_REPO = 'tarjen-wiki';
@@ -706,9 +676,6 @@
     // base64 UTF-8 encode (避免 btoa() 对非 ASCII 字符炸)
     function b64encodeUtf8(str) {
       return btoa(unescape(encodeURIComponent(str)));
-    }
-    function b64decodeUtf8(b64) {
-      return decodeURIComponent(escape(atob(b64.replace(/\n/g, ''))));
     }
 
     async function saveToGithub() {
@@ -823,36 +790,6 @@
       }
       if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
       return rows;
-    }
-
-    function loadCsvText(text) {
-      const rows = parseCsv(text);
-      if (rows.length < 1) return;
-      const header = rows[0].map(h => h.trim());
-      csvHeader = header;
-      const iSlug = header.indexOf('slug');
-      const iName = header.indexOf('name');
-      const iDate = header.indexOf('date');
-      const iSolved = header.indexOf('solved');
-      const iTotal = header.indexOf('total');
-      const iProblems = header.indexOf('problems');
-      const iLink = header.indexOf('link');
-      const iTags = header.indexOf('tags');
-      if (iSlug < 0 || iName < 0) {
-        showToast('CSV 格式不对（缺 slug 或 name 列）', true);
-        return;
-      }
-      csvRows = rows.slice(1).map(r => ({
-        slug: r[iSlug] || '',
-        name: r[iName] || '',
-        date: r[iDate] || '',
-        solved: r[iSolved] || '',
-        total: r[iTotal] || '',
-        problems: r[iProblems] || '',
-        link: iLink >= 0 ? (r[iLink] || '') : '',
-        tags: iTags >= 0 ? (r[iTags] || '') : '',
-      }));
-      ingestLoaded();
     }
 
     function loadContestsData(payload) {
