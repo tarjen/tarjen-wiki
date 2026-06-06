@@ -97,11 +97,18 @@
       font-size: 0.9em;
       font-family: inherit;
     }
-    button.btn:hover { opacity: 0.9; }
+    button.btn:hover:not(:disabled) { opacity: 0.9; }
+    button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
     button.btn.sec {
       background: transparent;
       color: var(--accent);
       border: 1px solid var(--accent);
+    }
+    button.btn.primary {
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      padding: 0.55em 1.2em;
     }
 
     .editor-grid {
@@ -157,9 +164,7 @@
     .preview h1 { font-size: 1.6em; }
     .preview h2 { font-size: 1.3em; }
     .preview h3 { font-size: 1.1em; }
-    .preview code {
-      font-size: 0.85em;
-    }
+    .preview code { font-size: 0.85em; }
     .preview pre {
       background: var(--code-bg);
       padding: 0.8em 1em;
@@ -172,10 +177,7 @@
       color: var(--muted);
       margin-left: 0;
     }
-    .preview table {
-      border-collapse: collapse;
-      margin: 0.5em 0;
-    }
+    .preview table { border-collapse: collapse; margin: 0.5em 0; }
     .preview table th, .preview table td {
       border: 1px solid var(--border);
       padding: 0.4em 0.8em;
@@ -210,22 +212,44 @@
     }
     .status-pill.dirty { background: #fff3e0; color: #ff9800; }
     .status-pill.saved { background: #e8f5e9; color: #4caf50; }
+
+    details.token-config {
+      margin-top: 1em;
+      padding: 0.6em 0.8em;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    details.token-config summary { cursor: pointer; font-weight: 500; }
+    details.token-config input[type="password"] {
+      width: 100%;
+      max-width: 400px;
+      padding: 0.4em 0.6em;
+      margin-top: 0.5em;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.85em;
+      background: var(--bg);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    details.token-config .row { margin-top: 0.5em; display: flex; gap: 0.5em; align-items: center; }
+    .hint { color: var(--muted); font-size: 0.85em; }
   </style>
 </head>
 <body>
   <h1>📝 编辑详情页</h1>
   <div class="nav-tip">
-    左侧改 Markdown → 右侧实时预览 → 复制或下载回去手动替换 <code>docs/contests/&lt;slug&gt;.md</code>
+    左侧改 Markdown → 右侧实时预览 → 点 <strong>💾 保存到 GitHub</strong> 直接提交，配了 GitHub Actions 几秒后页面自动更新
   </div>
   <div class="edit-banner" id="edit-banner" style="display:none;"></div>
 
   <div class="toolbar">
     <div class="slug">正在编辑：<strong id="slug-name">—</strong></div>
     <span class="status-pill" id="status-pill">未修改</span>
-    <button class="btn sec" id="btn-copy">📋 复制</button>
-    <button class="btn sec" id="btn-download">⬇ 下载 .md</button>
     <a class="btn sec" id="btn-goto" style="text-decoration:none;display:none;" target="_blank">👁 查看</a>
     <a class="btn sec" id="btn-status" style="text-decoration:none;">📊 改状态</a>
+    <button class="btn primary" id="btn-save-github" disabled>💾 保存到 GitHub</button>
   </div>
 
   <div class="editor-grid">
@@ -239,17 +263,51 @@
     </div>
   </div>
 
+  <details class="token-config">
+    <summary>⚙ GitHub Token 配置</summary>
+    <p class="hint" style="margin-top: 0.5em;">
+      ① 打开 <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">GitHub PAT 设置</a>
+      ② New fine-grained token，仓库只勾 <code>tarjen/tarjen-wiki</code>，权限只勾 <strong>Contents: Read and write</strong>
+      ③ 复制 token 粘到下面
+    </p>
+    <input type="password" id="gh-token" placeholder="github_pat_xxx..." autocomplete="off">
+    <div class="row">
+      <button class="btn sec tiny" id="btn-save-token">保存 Token</button>
+      <button class="btn sec tiny" id="btn-clear-token" style="display:none;">清除</button>
+      <span class="hint" id="token-status"></span>
+    </div>
+  </details>
+
   <div class="toast" id="toast"></div>
 
   <script>
     const $ = (id) => document.getElementById(id);
     const params = new URLSearchParams(location.search);
     const slug = params.get('slug');
-    const tab = params.get('tab') || 'md';
     const ta = $('md-content');
     const preview = $('md-preview');
     let original = '';
     let dirty = false;
+    let saving = false;
+
+    // GitHub 配置
+    const GH_OWNER = 'tarjen';
+    const GH_REPO  = 'tarjen-wiki';
+    const GH_BRANCH = 'main';
+    const GH_PATH = (s) => `docs/contests/${s}.md`;
+    const TOKEN_KEY = 'gh_token_v1';
+
+    const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
+    const setToken = (t) => {
+      if (t) localStorage.setItem(TOKEN_KEY, t);
+      else localStorage.removeItem(TOKEN_KEY);
+    };
+    const refreshTokenStatus = () => {
+      const has = !!getToken();
+      $('gh-token').value = has ? '••••••••••' : '';
+      $('btn-clear-token').style.display = has ? '' : 'none';
+      $('token-status').textContent = has ? '✓ 已配置' : '未配置';
+    };
 
     // 配置 marked
     if (window.marked) {
@@ -270,12 +328,20 @@
       }
       dirty = ta.value !== original;
       setStatus(dirty ? '● 未保存' : '✓ 未修改', dirty ? 'dirty' : 'saved');
+      $('btn-save-github').disabled = !dirty || saving;
     }
 
     function escapeHtml(s) {
       return (s || '').replace(/[&<>"']/g, c => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
       }[c]));
+    }
+
+    function showToast(msg, isError) {
+      const t = $('toast');
+      t.textContent = msg;
+      t.className = 'toast show' + (isError ? ' error' : '');
+      setTimeout(() => t.className = 'toast', 1800);
     }
 
     async function loadFile() {
@@ -289,20 +355,18 @@
         return;
       }
       $('slug-name').textContent = slug;
-      $('btn-goto').href = `../contests/${slug}/`;
+      $('btn-goto').href = `../contests/${slug}/?_t=${Date.now()}`;
       $('btn-goto').style.display = '';
       $('btn-status').href = `../editor/?slug=${encodeURIComponent(slug)}`;
 
-      // 尝试多个源，按顺序试：
-      // 1. 同源 ../docs/contests/<slug>.md — dev server (mkdocs serve) 模式下可用
-      // 2. raw.githubusercontent.com — gh-pages 部署模式下可用（CORS *）
+      // 尝试多个源
       const sources = [
-        `../docs/contests/${slug}.md`,
-        `https://raw.githubusercontent.com/tarjen/tarjen-wiki/main/docs/contests/${slug}.md`,
+        `../docs/contests/${slug}.md`,  // dev server
+        `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/docs/contests/${slug}.md`,  // gh-pages
       ];
       for (const url of sources) {
         try {
-          const res = await fetch(url);
+          const res = await fetch(url, { cache: 'no-store' });
           if (!res.ok) continue;
           const text = await res.text();
           ta.value = text;
@@ -312,88 +376,115 @@
           return;
         } catch (e) { /* 试下一个源 */ }
       }
-      // 全部失败 → 降级为提示用户从文件选
-      }
-      // 降级：让用户选文件
-      ta.value = `# ${slug}\n\n（无法从同源加载，请点下方按钮选 .md 文件）`;
+      // 全部失败 → 降级
+      ta.value = `# ${slug}\n\n（无法加载，请检查 slug）\n`;
       original = ta.value;
       $('edit-banner').style.display = 'block';
-      $('edit-banner').innerHTML =
-        `⚠ 没法从同源加载 <code>contests/${escapeHtml(slug)}.md</code>。` +
-        `可能原因：<code>file://</code> 协议 / 路径错。` +
-        `点这里 <a href="#" id="pick-file">选 .md 文件</a> 加载。`;
-      $('pick-file').addEventListener('click', (e) => {
-        e.preventDefault();
-        const inp = document.createElement('input');
-        inp.type = 'file';
-        inp.accept = '.md';
-        inp.onchange = () => {
-          const f = inp.files[0];
-          if (!f) return;
-          const r = new FileReader();
-          r.onload = () => {
-            ta.value = r.result;
-            original = r.result;
-            updatePreview();
-            setStatus('✓ 已加载', 'saved');
-            $('edit-banner').style.display = 'none';
-          };
-          r.readAsText(f, 'utf-8');
-        };
-        inp.click();
-      });
+      $('edit-banner').innerHTML = `⚠ 没法加载 <code>${escapeHtml(slug)}.md</code>，可能 file:// 协议或 slug 错。`;
       updatePreview();
     }
 
-    async function copyMd() {
-      try {
-        await navigator.clipboard.writeText(ta.value);
-        showToast('已复制');
-      } catch {
-        ta.select();
-        document.execCommand('copy');
-        showToast('已复制（兼容模式）');
-        window.getSelection().removeAllRanges();
+    // GitHub Contents API: GET SHA → PUT new content
+    async function saveToGithub() {
+      if (!slug) { showToast('URL 里没有 ?slug=', true); return; }
+      const token = getToken();
+      if (!token) {
+        showToast('先在下方 ⚙ Token 配置 里填 token', true);
+        $('token-config')?.scrollIntoView?.();
+        return;
       }
-    }
+      const btn = $('btn-save-github');
+      const orig = btn.textContent;
+      btn.disabled = true;
+      saving = true;
+      btn.textContent = '⏳ 保存中…';
 
-    function downloadMd() {
-      const blob = new Blob([ta.value], { type: 'text/markdown;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${slug || 'untitled'}.md`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      showToast('已下载');
-    }
+      const path = GH_PATH(slug);
+      const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`;
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'tarjen-wiki-editor',
+      };
 
-    function showToast(msg, isError) {
-      const t = $('toast');
-      t.textContent = msg;
-      t.className = 'toast show' + (isError ? ' error' : '');
-      setTimeout(() => t.className = 'toast', 1800);
+      try {
+        // 1) 取当前文件 SHA
+        const getRes = await fetch(`${url}?ref=${GH_BRANCH}`, { headers });
+        if (!getRes.ok) {
+          const err = await getRes.json().catch(() => ({}));
+          throw new Error(err.message || `GET 失败 HTTP ${getRes.status}`);
+        }
+        const meta = await getRes.json();
+        const sha = meta.sha;
+        const commitMsg = `update(${slug}): via markdown editor`;
+
+        // 2) PUT 新内容
+        const content = btoa(unescape(encodeURIComponent(ta.value)));
+        const putRes = await fetch(url, {
+          method: 'PUT',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: commitMsg,
+            content,
+            sha,
+            branch: GH_BRANCH,
+          }),
+        });
+        if (!putRes.ok) {
+          const err = await putRes.json().catch(() => ({}));
+          throw new Error(err.message || `PUT 失败 HTTP ${putRes.status}`);
+        }
+        const result = await putRes.json();
+        original = ta.value;
+        dirty = false;
+        setStatus('✅ 已保存', 'saved');
+        showToast('✅ 已提交到 GitHub');
+        setTimeout(() => { btn.textContent = orig; saving = false; }, 1500);
+        // 等几秒让 workflow 跑完再跳回比赛页（带 cache-bust）
+        setTimeout(() => { window.location.href = `../contests/${slug}/?_t=${Date.now()}`; }, 4000);
+      } catch (e) {
+        showToast('保存失败：' + e.message, true);
+        btn.textContent = orig;
+        saving = false;
+        updatePreview();
+      }
     }
 
     // 离开提示
     window.addEventListener('beforeunload', (e) => {
-      if (dirty) {
+      if (dirty && !saving) {
         e.preventDefault();
         e.returnValue = '';
       }
     });
 
-    // 快捷键
-    ta.addEventListener('input', updatePreview);
+    // 快捷键 Cmd/Ctrl+S = save
     document.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-        downloadMd();
+        if (!$('btn-save-github').disabled) saveToGithub();
       }
     });
 
-    $('btn-copy').addEventListener('click', copyMd);
-    $('btn-download').addEventListener('click', downloadMd);
+    ta.addEventListener('input', updatePreview);
+    $('btn-save-github').addEventListener('click', saveToGithub);
+    $('btn-save-token').addEventListener('click', () => {
+      const v = $('gh-token').value.trim();
+      if (!v || v.startsWith('••')) { showToast('先在输入框里粘 token', true); return; }
+      setToken(v);
+      refreshTokenStatus();
+      showToast('✓ Token 已保存到 localStorage');
+      updatePreview();
+    });
+    $('btn-clear-token').addEventListener('click', () => {
+      if (!confirm('清除本地存储的 GitHub Token？')) return;
+      setToken('');
+      refreshTokenStatus();
+      showToast('Token 已清除');
+      updatePreview();
+    });
 
+    refreshTokenStatus();
     loadFile();
   </script>
 </body>
