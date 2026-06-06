@@ -11,9 +11,12 @@ test-py:
 test-js:
 	node --test tests/js/*.test.js
 
-# 验证 mkdocs 能成功构建（注意：要先有 .venv 装过 mkdocs-material）
+# 验证 mkdocs 能成功构建（优先用 .venv，没有就 fallback 系统 python）
 build:
-	python3 -m mkdocs build --strict
+	@if [ -x .venv/bin/mkdocs ]; then .venv/bin/mkdocs build --strict; \
+	elif command -v mkdocs >/dev/null 2>&1; then mkdocs build --strict; \
+	else echo "❌ mkdocs not found. Run: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"; exit 1; \
+	fi
 
 clean:
 	rm -rf site/

@@ -1,5 +1,5 @@
 // docs/assets/wiki.js
-// 共享前端模块：被 /editor/ 和 /edit-md/ 两个页面 <script src="../assets/wiki.js"> 加载。
+// 共享前端模块：被 /editor/?view=table 和 /editor/?view=md 同一页面 <script src="../assets/wiki.js"> 加载。
 // 没有构建步骤、没有模块系统——直接挂到 window.Wiki。
 // 要加第三个编辑器：引入这个文件 + 准备好约定的 DOM 元素 ID（见 wireTokenUI / wireBeforeUnload 注释）。
 (function () {
@@ -7,15 +7,99 @@
 
   // ---- 仓库元信息（要改 owner / repo / branch 只改这一处） ----
   var REPO = { owner: 'tarjen', repo: 'tarjen-wiki', branch: 'main' };
+  // v1 = 明文 PAT（遗留，向后兼容）；v2_enc = AES-GCM 加密后的 blob（base64 字符串）
   var TOKEN_KEY = 'gh_token_v1';
+  var TOKEN_KEY_ENC = 'gh_token_v2_enc';
   var API_BASE = 'https://api.github.com';
   var RAW_BASE = 'https://raw.githubusercontent.com';
 
-  // ---- Token ----
-  function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
-  function setToken(t) {
-    if (t) localStorage.setItem(TOKEN_KEY, t);
-    else localStorage.removeItem(TOKEN_KEY);
+  // ---- Token 状态 ----
+  // 明文 PAT 永远不写 localStorage（遗留的 v1 例外）；运行时只放在 _plain 内存里，刷新就丢。
+  var _plain = '';
+  function getToken() { return _plain; }
+  function setToken(t) { _plain = t || ''; }
+  // 兼容旧用法：编辑器的「保存 Token」按钮会调 setToken；新流程下 setToken 只放内存
+  function clearToken() { _plain = ''; localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(TOKEN_KEY_ENC); }
+
+  // ---- Web Crypto：密码派生 + AES-GCM 加密 ----
+  // 失败抛 Error('crypto-unavailable') 或 Error('crypto-failed: ...')。
+  // 存储格式：base64(salt[16] || iv[12] || ciphertext+N)，解密时再切。
+  function b64encode(bytes) {
+    var s = '';
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  }
+  function b64decode(s) {
+    var bin = atob(s);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  function _crypto() {
+    if (typeof crypto === 'undefined' || !crypto.subtle) throw new Error('crypto-unavailable');
+    return crypto.subtle;
+  }
+  // PBKDF2(password) → AES-GCM key. salt 至少 16 字节随机。
+  async function deriveKey(password, salt) {
+    var c = _crypto();
+    var baseKey = await c.importKey(
+      'raw', new TextEncoder().encode(password), { name: 'PBKDF2' }, false, ['deriveKey']
+    );
+    return c.deriveKey(
+      { name: 'PBKDF2', salt: salt, iterations: 250000, hash: 'SHA-256' },
+      baseKey,
+      { name: 'AES-GCM', length: 256 },
+      false, ['encrypt', 'decrypt']
+    );
+  }
+  async function encryptToken(plaintext, password) {
+    if (!password) throw new Error('密码不能为空');
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var key = await deriveKey(password, salt);
+    var ct = await _crypto().encrypt(
+      { name: 'AES-GCM', iv: iv },
+      key, new TextEncoder().encode(plaintext)
+    );
+    var out = new Uint8Array(salt.length + iv.length + ct.byteLength);
+    out.set(salt, 0); out.set(iv, salt.length); out.set(new Uint8Array(ct), salt.length + iv.length);
+    return b64encode(out);
+  }
+  async function decryptToken(blob, password) {
+    if (!password) throw new Error('密码不能为空');
+    var raw = b64decode(blob);
+    if (raw.length < 16 + 12 + 1) throw new Error('crypto-failed: blob 损坏');
+    var salt = raw.slice(0, 16);
+    var iv = raw.slice(16, 28);
+    var ct = raw.slice(28);
+    var key = await deriveKey(password, salt);
+    var pt;
+    try {
+      pt = await _crypto().decrypt({ name: 'AES-GCM', iv: iv }, key, ct);
+    } catch (e) {
+      throw new Error('crypto-failed: 密码错或 blob 损坏');
+    }
+    return new TextDecoder().decode(pt);
+  }
+  // 是否有加密的 token（localStorage 里）
+  function hasEncryptedToken() {
+    try { return !!localStorage.getItem(TOKEN_KEY_ENC); } catch (e) { return false; }
+  }
+  // 用密码解锁：成功 → 把明文放进 _plain；失败抛
+  async function unlockToken(password) {
+    var blob = localStorage.getItem(TOKEN_KEY_ENC);
+    if (!blob) throw new Error('没有加密的 token');
+    var pt = await decryptToken(blob, password);
+    _plain = pt;
+    return pt;
+  }
+  // 把当前明文（_plain）用密码加密后存到 localStorage；存完 _plain 不变（仍在内存里）
+  async function encryptCurrentToken(password) {
+    if (!_plain) throw new Error('没有可加密的 token');
+    var blob = await encryptToken(_plain, password);
+    localStorage.setItem(TOKEN_KEY_ENC, blob);
+    // 既然已加密，把明文 v1 也清掉（如果有的话），单一来源
+    localStorage.removeItem(TOKEN_KEY);
   }
 
   // ---- URL 拼接 ----
@@ -92,29 +176,112 @@
   }
 
   // 绑定 <details class="token-config" id="token-config"> 块。
-  // 块内必须有以下 ID：gh-token (input)、btn-save-token、btn-clear-token、token-status (span)。
+  // 块内必须有以下 ID：gh-token (input)、btn-save-token、btn-clear-token、token-status (span)、
+  // gh-pwd (input, 可选)、btn-unlock、btn-encrypt、gh-status-banner (span, 可选)。
   // 任一缺失就静默跳过（不报错，方便部分页面只用子集）。
+  // 状态机：
+  //   - 没有 token (v1/v2_enc 都没有) → 显示保存表单（粘 token → 保存明文到内存）
+  //   - 有 v2_enc + 内存里没有明文 → 显示解锁表单（粘密码 → 解锁到内存）
+  //   - 内存里有明文 → 显示「已解锁」+ 可选「加密到磁盘」+ 清除按钮
   function wireTokenUI() {
     var inp = document.getElementById('gh-token');
     var btnSv = document.getElementById('btn-save-token');
     var btnCl = document.getElementById('btn-clear-token');
     var st = document.getElementById('token-status');
+    var pwd = document.getElementById('gh-pwd');
+    var btnUnl = document.getElementById('btn-unlock');
+    var btnEnc = document.getElementById('btn-encrypt');
+    var banner = document.getElementById('gh-status-banner');
+
+    function setVisible(el, on) { if (el) el.style.display = on ? '' : 'none'; }
 
     function refresh() {
-      var has = !!getToken();
-      if (inp) inp.value = has ? '••••••••••' : '';
-      if (btnCl) btnCl.style.display = has ? '' : 'none';
-      if (st) st.textContent = has ? '✓ 已配置' : '未配置';
+      var inMem = !!_plain;
+      var onDisk = hasEncryptedToken();
+      var legacyDisk = false;
+      try { legacyDisk = !!localStorage.getItem(TOKEN_KEY); } catch (e) {}
+
+      if (inMem) {
+        // 已解锁
+        if (inp) { setVisible(inp, false); }
+        if (btnSv) { setVisible(btnSv, false); }
+        if (st) st.textContent = onDisk ? '🔓 已解锁（加密存储）' : '🔓 已解锁（仅内存）';
+        if (btnEnc) { setVisible(btnEnc, !onDisk); }   // 已加密就不显示「加密」按钮
+        if (banner) banner.textContent = onDisk
+          ? 'Token 已用密码加密保存到 localStorage；关闭浏览器后需重新输入密码解锁。'
+          : 'Token 当前只在内存里。点「🔒 用密码加密」可以存到 localStorage（下次启动要密码解锁）。';
+      } else if (onDisk) {
+        // 有加密 blob，需要解锁
+        if (inp) { setVisible(inp, false); }
+        if (btnSv) { setVisible(btnSv, false); }
+        if (btnUnl) setVisible(btnUnl, true);
+        if (st) st.textContent = '🔒 已加密，未解锁';
+        if (banner) banner.textContent = 'localStorage 里有一个加密的 GitHub Token；输入密码解锁后即可保存。';
+      } else {
+        // 全新
+        if (inp) { setVisible(inp, true); }
+        if (btnSv) { setVisible(btnSv, true); }
+        if (st) st.textContent = legacyDisk ? '✓ 已配置（v1 明文）' : '未配置';
+        if (banner) banner.textContent = legacyDisk
+          ? '检测到旧版（v1）明文 token。点「保存」会迁移到内存模式；点「🔒 用密码加密」会升级到加密存储。'
+          : '粘一个 fine-grained PAT（仓库勾 tarjen/tarjen-wiki，权限只勾 Contents: Read and write），点保存。';
+      }
+      if (btnCl) setVisible(btnCl, inMem || onDisk || legacyDisk);
     }
 
     if (btnSv) btnSv.addEventListener('click', function () {
       var v = (inp && inp.value || '').trim();
       if (!v || v.indexOf('••') === 0) { toast('先在输入框里粘 token', true); return; }
-      setToken(v); refresh(); toast('✓ Token 已保存到 localStorage');
+      setToken(v);
+      // 清理旧 v1 明文（如果有的话），新模式只在内存里
+      try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+      refresh();
+      toast('✓ Token 已加载到内存（关闭浏览器即清空）');
     });
+
     if (btnCl) btnCl.addEventListener('click', function () {
-      if (!confirm('清除本地存储的 GitHub Token？')) return;
-      setToken(''); refresh(); toast('Token 已清除');
+      if (!confirm('清除 GitHub Token？（同时清掉 localStorage 里的加密 blob）')) return;
+      clearToken();
+      if (inp) inp.value = '';
+      if (pwd) pwd.value = '';
+      refresh();
+      toast('Token 已清除');
+    });
+
+    if (btnUnl) btnUnl.addEventListener('click', function () {
+      var p = (pwd && pwd.value || '').trim();
+      if (!p) { toast('先输入密码', true); return; }
+      btnUnl.disabled = true;
+      unlockToken(p).then(function () {
+        if (pwd) pwd.value = '';
+        refresh();
+        toast('🔓 已解锁');
+      }).catch(function (e) {
+        toast('解锁失败：' + e.message, true);
+      }).then(function () { btnUnl.disabled = false; });
+    });
+
+    if (btnEnc) btnEnc.addEventListener('click', function () {
+      var p = (pwd && pwd.value || '').trim();
+      if (!p) { toast('先在密码框里输入一个密码（要记牢！丢了就解不开）', true); return; }
+      if (p.length < 6) { toast('密码至少 6 位', true); return; }
+      btnEnc.disabled = true;
+      encryptCurrentToken(p).then(function () {
+        if (pwd) pwd.value = '';
+        refresh();
+        toast('🔒 已用密码加密保存到 localStorage');
+      }).catch(function (e) {
+        toast('加密失败：' + e.message, true);
+      }).then(function () { btnEnc.disabled = false; });
+    });
+
+    // Enter 键在密码框里直接触发解锁 / 加密
+    if (pwd) pwd.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (hasEncryptedToken() && !_plain && btnUnl) btnUnl.click();
+        else if (btnEnc) btnEnc.click();
+      }
     });
 
     refresh();
@@ -138,8 +305,11 @@
 
   // ---- 暴露 ----
   window.Wiki = {
-    REPO: REPO, TOKEN_KEY: TOKEN_KEY,
-    getToken: getToken, setToken: setToken,
+    REPO: REPO, TOKEN_KEY: TOKEN_KEY, TOKEN_KEY_ENC: TOKEN_KEY_ENC,
+    getToken: getToken, setToken: setToken, clearToken: clearToken,
+    hasEncryptedToken: hasEncryptedToken,
+    encryptToken: encryptToken, decryptToken: decryptToken,
+    unlockToken: unlockToken, encryptCurrentToken: encryptCurrentToken,
     apiUrl: apiUrl, rawUrl: rawUrl, apiHeaders: apiHeaders,
     commitFile: commitFile,
     esc: esc, toast: toast, setStatus: setStatus,

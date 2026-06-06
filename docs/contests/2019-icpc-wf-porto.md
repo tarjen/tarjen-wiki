@@ -1,7 +1,7 @@
 # The 2019 ICPC World Finals Porto
 
 !!! tip "快速编辑"
-    - [📝 编辑此页](../../edit-md/?slug=2019-icpc-wf-porto) — 改总结、复盘、题目笔记
+    - [📝 编辑此页](../../editor/?view=md&slug=2019-icpc-wf-porto) — 改总结、复盘、题目笔记
     - [📊 改状态表](../../editor/?slug=2019-icpc-wf-porto) — 改 O/Ø/! 状态
 
 ## 元信息

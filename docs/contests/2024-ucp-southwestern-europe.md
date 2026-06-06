@@ -1,7 +1,7 @@
 # The 3rd Universal Cup. Stage 18: Southwestern Europe
 
 !!! tip "快速编辑"
-    - [📝 编辑此页](../../edit-md/?slug=2024-ucp-southwestern-europe) — 改总结、复盘、题目笔记
+    - [📝 编辑此页](../../editor/?view=md&slug=2024-ucp-southwestern-europe) — 改总结、复盘、题目笔记
     - [📊 改状态表](../../editor/?slug=2024-ucp-southwestern-europe) — 改 O/Ø/! 状态
 
 ## 元信息

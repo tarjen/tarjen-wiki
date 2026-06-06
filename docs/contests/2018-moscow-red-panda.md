@@ -1,7 +1,7 @@
 # Moscow Pre-Finals Workshops 2018. Day 3. Moscow SU Red Panda Contest
 
 !!! tip "快速编辑"
-    - [📝 编辑此页](../../edit-md/?slug=2018-moscow-red-panda) — 改总结、复盘、题目笔记
+    - [📝 编辑此页](../../editor/?view=md&slug=2018-moscow-red-panda) — 改总结、复盘、题目笔记
     - [📊 改状态表](../../editor/?slug=2018-moscow-red-panda) — 改 O/Ø/! 状态
 
 ## 元信息

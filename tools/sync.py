@@ -257,7 +257,7 @@ def update_index_md(contests: list[Contest], *, dry_run: bool) -> None:
 CONTEST_TEMPLATE = """# {name}
 
 !!! tip "快速编辑"
-    - [📝 编辑此页](../../edit-md/?slug={slug}) — 改总结、复盘、题目笔记
+    - [📝 编辑此页](../../editor/?view=md&slug={slug}) — 改总结、复盘、题目笔记
     - [📊 改状态表](../../editor/?slug={slug}) — 改 O/Ø/! 状态
 
 ## 元信息

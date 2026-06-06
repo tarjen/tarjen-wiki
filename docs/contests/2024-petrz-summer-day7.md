@@ -1,7 +1,7 @@
 # Petrozavodsk Summer 2024. Day 7. Farewell Contest
 
 !!! tip "快速编辑"
-    - [📝 编辑此页](../../edit-md/?slug=2024-petrz-summer-day7) — 改总结、复盘、题目笔记
+    - [📝 编辑此页](../../editor/?view=md&slug=2024-petrz-summer-day7) — 改总结、复盘、题目笔记
     - [📊 改状态表](../../editor/?slug=2024-petrz-summer-day7) — 改 O/Ø/! 状态
 
 ## 元信息

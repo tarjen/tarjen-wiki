@@ -1,7 +1,7 @@
 # ACM-ICPC World Finals 2015 – Marrakesh
 
 !!! tip "快速编辑"
-    - [📝 编辑此页](../../edit-md/?slug=2015-icpc-wf-marrakesh) — 改总结、复盘、题目笔记
+    - [📝 编辑此页](../../editor/?view=md&slug=2015-icpc-wf-marrakesh) — 改总结、复盘、题目笔记
     - [📊 改状态表](../../editor/?slug=2015-icpc-wf-marrakesh) — 改 O/Ø/! 状态
 
 ## 元信息

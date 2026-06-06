@@ -1,7 +1,7 @@
 # 2017-2018 ACM-ICPC, Asia Tsukuba Regional Contest
 
 !!! tip "快速编辑"
-    - [📝 编辑此页](../../edit-md/?slug=2017-icpc-asia-tsukuba) — 改总结、复盘、题目笔记
+    - [📝 编辑此页](../../editor/?view=md&slug=2017-icpc-asia-tsukuba) — 改总结、复盘、题目笔记
     - [📊 改状态表](../../editor/?slug=2017-icpc-asia-tsukuba) — 改 O/Ø/! 状态
 
 ## 元信息

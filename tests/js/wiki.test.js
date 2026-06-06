@@ -1,8 +1,8 @@
 // tests/js/wiki.test.js
 // 用 node:test 跑（node ≥ 18 自带，无 npm install）。
-// 跑法：node --test tests/js/
 //
 // wiki.js 是浏览器脚本（挂在 window.Wiki 上），用 vm 模块跑在带 mock 的 sandbox 里。
+// crypto.subtle 用 Node 自带的 webcrypto 模拟（Node 18+ 有 globalThis.crypto）。
 
 'use strict';
 
@@ -23,13 +23,16 @@ const WIKI_JS = fs.readFileSync(
  * 跑一次 wiki.js 在带 mock 的 vm context 里，返回 window.Wiki。
  *
  * @param {object} opts
- * @param {string} [opts.token]     预置 token
+ * @param {string} [opts.token]     预置 v1 明文 token
+ * @param {string} [opts.encBlob]   预置 v2 加密 blob（b64）
  * @param {Function} [opts.fetchImpl] 自定义 fetch
  * @param {object}   [opts.elements]  document.getElementById mock 返回的元素，key = id
+ * @param {object}   [opts.overrides]  覆盖默认 ctx 字段
  */
-function loadWiki({ token = '', fetchImpl = null, elements = {} } = {}) {
+function loadWiki({ token = '', encBlob = '', fetchImpl = null, elements = {}, overrides = {} } = {}) {
   const store = {};
   if (token) store['gh_token_v1'] = token;
+  if (encBlob) store['gh_token_v2_enc'] = encBlob;
 
   const localStorage = {
     getItem(k) { return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },
@@ -53,6 +56,8 @@ function loadWiki({ token = '', fetchImpl = null, elements = {} } = {}) {
   const btoa = (s) => Buffer.from(s, 'binary').toString('base64');
   const atob = (s) => Buffer.from(s, 'base64').toString('binary');
 
+  // 用 Node 内置 webcrypto 模拟浏览器 Web Crypto
+  // 实际测试里需要可控制随机数所以传一个真实的 crypto
   const ctx = {
     window: win,
     localStorage,
@@ -62,32 +67,52 @@ function loadWiki({ token = '', fetchImpl = null, elements = {} } = {}) {
     setTimeout,
     clearTimeout,
     btoa, atob,
-    confirm: () => true,  // 默认点「确定」
+    crypto: globalThis.crypto,  // Node 18+ 自带 webcrypto
+    TextEncoder, TextDecoder,  // 浏览器全局，wiki.js 调
+    confirm: () => true,
+    ...overrides,
   };
   vm.createContext(ctx);
   vm.runInContext(WIKI_JS, ctx);
+  // 模拟 boot 时编辑器的 v1 → 内存迁移：legacy 旧版兼容性测试需要
+  if (token && !win.Wiki.getToken()) win.Wiki.setToken(token);
   return { Wiki: win.Wiki, store, win, doc: document };
 }
 
-// ---- token ----
+// ---- token (in-memory model) ----
 
 test('getToken returns "" when not configured', () => {
   const { Wiki } = loadWiki();
   assert.equal(Wiki.getToken(), '');
 });
 
-test('setToken + getToken roundtrip', () => {
+test('setToken puts token in memory (NOT localStorage)', () => {
   const { Wiki, store } = loadWiki();
   Wiki.setToken('ghp_test_xxx');
   assert.equal(Wiki.getToken(), 'ghp_test_xxx');
-  assert.equal(store['gh_token_v1'], 'ghp_test_xxx');
+  // 关键：v1/v2_enc 都不应被 setToken 写入
+  assert.equal(store['gh_token_v1'], undefined,
+    'setToken must NOT write plaintext to localStorage (v1)');
+  assert.equal(store['gh_token_v2_enc'], undefined,
+    'setToken must NOT write to localStorage (v2_enc)');
 });
 
-test('setToken("") removes the key', () => {
-  const { Wiki, store } = loadWiki({ token: 'old' });
+test('setToken("") clears in-memory token', () => {
+  const { Wiki, store } = loadWiki();
+  Wiki.setToken('t');
+  assert.equal(Wiki.getToken(), 't');
   Wiki.setToken('');
   assert.equal(Wiki.getToken(), '');
   assert.equal(store['gh_token_v1'], undefined);
+});
+
+test('clearToken wipes in-memory + both localStorage keys', () => {
+  const { Wiki, store } = loadWiki({ token: 'old', encBlob: 'blob' });
+  Wiki.setToken('t');
+  Wiki.clearToken();
+  assert.equal(Wiki.getToken(), '');
+  assert.equal(store['gh_token_v1'], undefined);
+  assert.equal(store['gh_token_v2_enc'], undefined);
 });
 
 // ---- URLs ----
@@ -227,74 +252,115 @@ test('commitFile: b64 handles non-ASCII (中文) correctly', async () => {
   assert.equal(decoded, '中文,2024.1.1\n');
 });
 
-// ---- wireTokenUI ----
+// ---- wireTokenUI: in-memory flow ----
 
-test('wireTokenUI: refresh shows configured state when token exists', () => {
-  const inp = { value: '' };
-  const btnSv = { addEventListener: () => {} };
-  const btnCl = { style: {}, addEventListener: () => {} };
+test('wireTokenUI: empty store shows "未配置" + save button', () => {
+  const inp = { value: '', style: {} };
+  const btnSv = { addEventListener: () => {}, style: {} };
   const st = { textContent: '' };
   const { Wiki } = loadWiki({
-    token: 'ghp_x',
-    elements: { 'gh-token': inp, 'btn-save-token': btnSv, 'btn-clear-token': btnCl, 'token-status': st },
+    elements: { 'gh-token': inp, 'btn-save-token': btnSv, 'token-status': st },
   });
   Wiki.wireTokenUI();
-  assert.equal(inp.value, '••••••••••');
-  assert.equal(st.textContent, '✓ 已配置');
-});
-
-test('wireTokenUI: refresh shows unconfigured state when no token', () => {
-  const inp = { value: '' };
-  const btnCl = { style: {}, addEventListener: () => {} };
-  const st = { textContent: '' };
-  const { Wiki } = loadWiki({
-    elements: { 'gh-token': inp, 'btn-clear-token': btnCl, 'token-status': st },
-  });
-  Wiki.wireTokenUI();
-  assert.equal(inp.value, '');
   assert.equal(st.textContent, '未配置');
-  assert.equal(btnCl.style.display, 'none');
+  assert.equal(inp.style.display, '', 'input visible');
+  assert.equal(btnSv.style.display, '', 'save button visible');
 });
 
-test('wireTokenUI: save button persists new token', () => {
+test('wireTokenUI: token in memory shows "已解锁（仅内存）"', () => {
+  const inp = { value: '', style: {} };
+  const btnSv = { addEventListener: () => {}, style: {} };
+  const btnEnc = { addEventListener: () => {}, style: {} };
+  const st = { textContent: '' };
+  const { Wiki } = loadWiki({
+    elements: { 'gh-token': inp, 'btn-save-token': btnSv, 'btn-encrypt': btnEnc, 'token-status': st },
+  });
+  Wiki.setToken('ghp_in_mem');
+  Wiki.wireTokenUI();
+  assert.match(st.textContent, /已解锁/);
+  assert.equal(inp.style.display, 'none', 'input hidden when unlocked');
+  assert.equal(btnSv.style.display, 'none', 'save button hidden when unlocked');
+  assert.equal(btnEnc.style.display, '', 'encrypt button visible (in-mem → can encrypt)');
+});
+
+test('wireTokenUI: legacy v1 token on disk shows migration hint', () => {
+  const st = { textContent: '' };
+  const banner = { textContent: '' };
+  const { Wiki } = loadWiki({
+    token: 'ghp_legacy',
+    elements: { 'token-status': st, 'gh-status-banner': banner },
+  });
+  Wiki.wireTokenUI();
+  // 旧 token 应被自动加载到内存
+  assert.equal(Wiki.getToken(), 'ghp_legacy',
+    'legacy v1 token should auto-migrate to memory at boot');
+  // 状态应是「已解锁（仅内存）」并提示可以升级到加密存储
+  assert.match(st.textContent, /已解锁/);
+  assert.match(banner.textContent, /密码加密/);
+});
+
+test('wireTokenUI: encrypted blob + no memory shows "未解锁" + unlock button', async () => {
+  // 先加密一个 token 拿到 blob
+  const tmp = loadWiki();
+  const blob = await tmp.Wiki.encryptToken('ghp_secret', 'pw123456');
+  assert.ok(blob && blob.length > 0);
+
+  const inp = { value: '', style: {} };
+  const pwd = { value: '', style: {}, addEventListener: () => {} };
+  const btnUnl = { addEventListener: () => {}, style: {} };
+  const st = { textContent: '' };
+  const banner = { textContent: '' };
+  const { Wiki } = loadWiki({
+    encBlob: blob,
+    elements: { 'gh-token': inp, 'gh-pwd': pwd, 'btn-unlock': btnUnl, 'token-status': st, 'gh-status-banner': banner },
+  });
+  Wiki.wireTokenUI();
+  assert.match(st.textContent, /未解锁/);
+  assert.equal(btnUnl.style.display, '', 'unlock button visible');
+  assert.equal(inp.style.display, 'none', 'paste input hidden');
+});
+
+test('wireTokenUI: save button loads token to memory (no localStorage write)', () => {
   let saveHandler;
-  const inp = { value: '' };
-  const btnSv = { addEventListener: (_evt, fn) => { saveHandler = fn; } };
-  const btnCl = { style: {}, addEventListener: () => {} };
+  const inp = { value: '', style: {} };
+  const btnSv = { addEventListener: (_evt, fn) => { saveHandler = fn; }, style: {} };
   const { Wiki, store } = loadWiki({
-    elements: { 'gh-token': inp, 'btn-save-token': btnSv, 'btn-clear-token': btnCl, 'token-status': { textContent: '' } },
+    elements: { 'gh-token': inp, 'btn-save-token': btnSv, 'token-status': { textContent: '' } },
   });
   Wiki.wireTokenUI();
   inp.value = 'ghp_new_token';
   saveHandler();
-  assert.equal(store['gh_token_v1'], 'ghp_new_token');
+  assert.equal(Wiki.getToken(), 'ghp_new_token');
+  assert.equal(store['gh_token_v1'], undefined, 'should not write v1');
+  assert.equal(store['gh_token_v2_enc'], undefined, 'should not write v2');
 });
 
 test('wireTokenUI: paste with bullet prefix (••) is rejected', () => {
   let saveHandler;
-  const inp = { value: '' };
-  const btnSv = { addEventListener: (_evt, fn) => { saveHandler = fn; } };
-  const { Wiki, store } = loadWiki({
-    elements: { 'gh-token': inp, 'btn-save-token': btnSv, 'btn-clear-token': { style: {}, addEventListener: () => {} }, 'token-status': { textContent: '' } },
+  const inp = { value: '', style: {} };
+  const btnSv = { addEventListener: (_evt, fn) => { saveHandler = fn; }, style: {} };
+  const { Wiki } = loadWiki({
+    elements: { 'gh-token': inp, 'btn-save-token': btnSv, 'token-status': { textContent: '' } },
   });
   Wiki.wireTokenUI();
   inp.value = '••••••••••';
   saveHandler();
-  // 没有真的 token 写进去
-  assert.equal(store['gh_token_v1'], undefined);
+  assert.equal(Wiki.getToken(), '');
 });
 
-test('wireTokenUI: clear button wipes token', () => {
+test('wireTokenUI: clear button wipes both memory + storage', () => {
   let clearHandler;
-  const inp = { value: '' };
-  const btnSv = { addEventListener: () => {} };
+  const inp = { value: '', style: {} };
+  const btnSv = { addEventListener: () => {}, style: {} };
   const btnCl = { style: {}, addEventListener: (_evt, fn) => { clearHandler = fn; } };
   const { Wiki, store } = loadWiki({
     token: 'old',
     elements: { 'gh-token': inp, 'btn-save-token': btnSv, 'btn-clear-token': btnCl, 'token-status': { textContent: '' } },
   });
+  Wiki.setToken('in_mem');
   Wiki.wireTokenUI();
   clearHandler();
+  assert.equal(Wiki.getToken(), '');
   assert.equal(store['gh_token_v1'], undefined);
 });
 
@@ -302,6 +368,120 @@ test('wireTokenUI: missing DOM elements → silent no-op (graceful degrade)', ()
   const { Wiki } = loadWiki();  // 没有任何 elements
   // 不应抛
   assert.doesNotThrow(() => Wiki.wireTokenUI());
+});
+
+// ---- encryption ----
+
+test('encryptToken + decryptToken: roundtrip with correct password', async () => {
+  const { Wiki } = loadWiki();
+  const blob = await Wiki.encryptToken('ghp_super_secret', 'hunter2');
+  assert.ok(blob && typeof blob === 'string' && blob.length > 0);
+  const back = await Wiki.decryptToken(blob, 'hunter2');
+  assert.equal(back, 'ghp_super_secret');
+});
+
+test('decryptToken: wrong password throws', async () => {
+  const { Wiki } = loadWiki();
+  const blob = await Wiki.encryptToken('ghp_secret', 'right');
+  await assert.rejects(
+    Wiki.decryptToken(blob, 'wrong'),
+    /密码错|crypto-failed/
+  );
+});
+
+test('decryptToken: corrupted blob throws', async () => {
+  const { Wiki } = loadWiki();
+  // 短于 28 字节的 blob 必然损坏
+  const tooShort = Buffer.alloc(20).toString('base64');
+  await assert.rejects(
+    Wiki.decryptToken(tooShort, 'pw'),
+    /blob 损坏|crypto-failed/
+  );
+});
+
+test('encryptToken: rejects empty password', async () => {
+  const { Wiki } = loadWiki();
+  await assert.rejects(Wiki.encryptToken('t', ''), /密码/);
+});
+
+test('encryptToken: each call produces a different blob (random salt+iv)', async () => {
+  const { Wiki } = loadWiki();
+  const a = await Wiki.encryptToken('t', 'p');
+  const b = await Wiki.encryptToken('t', 'p');
+  assert.notEqual(a, b, 'salt+iv 必须是随机的');
+});
+
+test('encryptToken: handles non-ASCII plaintext', async () => {
+  const { Wiki } = loadWiki();
+  const blob = await Wiki.encryptToken('中文密码 / emoji 🔑', 'pw');
+  const back = await Wiki.decryptToken(blob, 'pw');
+  assert.equal(back, '中文密码 / emoji 🔑');
+});
+
+test('encryptCurrentToken: stores encrypted blob + removes legacy v1', async () => {
+  let encHandler;
+  const pwd = { value: 'mypw123', addEventListener: () => {}, style: {} };
+  const btnEnc = { addEventListener: (_evt, fn) => { encHandler = fn; }, style: {} };
+  const { Wiki, store } = loadWiki({
+    token: 'ghp_old_v1',
+    elements: { 'gh-pwd': pwd, 'btn-encrypt': btnEnc },
+  });
+  // boot 时编辑器会把 v1 加载到内存。这里手动模拟。
+  Wiki.setToken('ghp_in_mem');
+  Wiki.wireTokenUI();
+  encHandler();
+  // 等待 encryptCurrentToken 的 promise
+  await new Promise((r) => setTimeout(r, 50));
+  assert.ok(store['gh_token_v2_enc'] && store['gh_token_v2_enc'].length > 0);
+  // v1 应被清掉
+  assert.equal(store['gh_token_v1'], undefined,
+    'v1 plaintext should be wiped after encryption');
+  // 内存里仍应有
+  assert.equal(Wiki.getToken(), 'ghp_in_mem');
+});
+
+test('unlockToken: correct password puts plaintext in memory', async () => {
+  // 先制造一个 blob
+  const tmp = loadWiki();
+  const blob = await tmp.Wiki.encryptToken('ghp_top_secret', 'rightpw');
+  // 模拟新会话：blob 在盘上，内存里没有
+  const inp = { value: '', style: {} };
+  const pwd = { value: '', addEventListener: () => {} };
+  let unlHandler;
+  const btnUnl = { addEventListener: (_evt, fn) => { unlHandler = fn; }, style: {} };
+  const ctx = loadWiki({
+    encBlob: blob,
+    elements: { 'gh-token': inp, 'gh-pwd': pwd, 'btn-unlock': btnUnl },
+  });
+  ctx.Wiki.wireTokenUI();
+  pwd.value = 'rightpw';
+  unlHandler();
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(ctx.Wiki.getToken(), 'ghp_top_secret');
+});
+
+test('unlockToken: wrong password keeps memory empty + shows friendly error', async () => {
+  const tmp = loadWiki();
+  const blob = await tmp.Wiki.encryptToken('t', 'right');
+  const pwd = { value: '', addEventListener: () => {} };
+  let unlHandler;
+  const btnUnl = { addEventListener: (_evt, fn) => { unlHandler = fn; }, style: {} };
+  const ctx = loadWiki({
+    encBlob: blob,
+    elements: { 'gh-pwd': pwd, 'btn-unlock': btnUnl },
+  });
+  ctx.Wiki.wireTokenUI();
+  pwd.value = 'wrong';
+  unlHandler();
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(ctx.Wiki.getToken(), '');
+});
+
+test('hasEncryptedToken: true when v2_enc present, false otherwise', () => {
+  const a = loadWiki();
+  assert.equal(a.Wiki.hasEncryptedToken(), false);
+  const b = loadWiki({ encBlob: 'blob' });
+  assert.equal(b.Wiki.hasEncryptedToken(), true);
 });
 
 // ---- wireBeforeUnload ----
@@ -317,16 +497,10 @@ test('wireBeforeUnload: dirty → preventDefault on beforeunload', () => {
     addEventListener: (evt, fn) => { docListeners[evt] = fn; },
     getElementById: () => null,
   };
-  const { Wiki } = loadWiki();
-  // override window & document
-  Wiki.wireBeforeUnload(function () { return true; }, null);
-  // 找到并调 beforeunload handler——需要重写测试方法，调用 wiki.js 注册的 listener
-  // 用 monkey-patch 重做：
-  // 我们重新 load wiki.js 这一次用我们的 win/document
   const localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
   const btoa = (s) => Buffer.from(s, "binary").toString("base64");
   const atob = (s) => Buffer.from(s, "base64").toString("binary");
-  const ctx = { window: win, document, localStorage, console, setTimeout, clearTimeout, confirm: () => true, btoa, atob };
+  const ctx = { window: win, document, localStorage, console, setTimeout, clearTimeout, confirm: () => true, btoa, atob, crypto: globalThis.crypto };
   vm.createContext(ctx);
   vm.runInContext(WIKI_JS, ctx);
   ctx.window.Wiki.wireBeforeUnload(function () { return true; }, null);
@@ -346,7 +520,7 @@ test('wireBeforeUnload: clean → no preventDefault', () => {
   const localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
   const btoa = (s) => Buffer.from(s, "binary").toString("base64");
   const atob = (s) => Buffer.from(s, "base64").toString("binary");
-  const ctx = { window: win, document, localStorage, console, setTimeout, clearTimeout, confirm: () => true, btoa, atob };
+  const ctx = { window: win, document, localStorage, console, setTimeout, clearTimeout, confirm: () => true, btoa, atob, crypto: globalThis.crypto };
   vm.createContext(ctx);
   vm.runInContext(WIKI_JS, ctx);
   ctx.window.Wiki.wireBeforeUnload(function () { return false; }, null);
@@ -356,14 +530,13 @@ test('wireBeforeUnload: clean → no preventDefault', () => {
 });
 
 test('wireBeforeUnload: Ctrl+S calls onSave', () => {
-  const winListeners = {};
   const docListeners = {};
-  const win = { addEventListener: (evt, fn) => { winListeners[evt] = fn; }, removeEventListener: () => {} };
   const document = { addEventListener: (evt, fn) => { docListeners[evt] = fn; }, getElementById: () => null };
   const localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  const win = { addEventListener: () => {}, removeEventListener: () => {} };
   const btoa = (s) => Buffer.from(s, "binary").toString("base64");
   const atob = (s) => Buffer.from(s, "base64").toString("binary");
-  const ctx = { window: win, document, localStorage, console, setTimeout, clearTimeout, confirm: () => true, btoa, atob };
+  const ctx = { window: win, document, localStorage, console, setTimeout, clearTimeout, confirm: () => true, btoa, atob, crypto: globalThis.crypto };
   vm.createContext(ctx);
   vm.runInContext(WIKI_JS, ctx);
 
@@ -375,13 +548,13 @@ test('wireBeforeUnload: Ctrl+S calls onSave', () => {
 });
 
 test('wireBeforeUnload: Cmd+S (mac) also calls onSave', () => {
-  const win = { addEventListener: () => {}, removeEventListener: () => {} };
   const docListeners = {};
   const document = { addEventListener: (evt, fn) => { docListeners[evt] = fn; }, getElementById: () => null };
   const localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  const win = { addEventListener: () => {}, removeEventListener: () => {} };
   const btoa = (s) => Buffer.from(s, "binary").toString("base64");
   const atob = (s) => Buffer.from(s, "base64").toString("binary");
-  const ctx = { window: win, document, localStorage, console, setTimeout, clearTimeout, confirm: () => true, btoa, atob };
+  const ctx = { window: win, document, localStorage, console, setTimeout, clearTimeout, confirm: () => true, btoa, atob, crypto: globalThis.crypto };
   vm.createContext(ctx);
   vm.runInContext(WIKI_JS, ctx);
 
@@ -393,13 +566,13 @@ test('wireBeforeUnload: Cmd+S (mac) also calls onSave', () => {
 });
 
 test('wireBeforeUnload: plain "s" key does NOT trigger save', () => {
-  const win = { addEventListener: () => {}, removeEventListener: () => {} };
   const docListeners = {};
   const document = { addEventListener: (evt, fn) => { docListeners[evt] = fn; }, getElementById: () => null };
   const localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  const win = { addEventListener: () => {}, removeEventListener: () => {} };
   const btoa = (s) => Buffer.from(s, "binary").toString("base64");
   const atob = (s) => Buffer.from(s, "base64").toString("binary");
-  const ctx = { window: win, document, localStorage, console, setTimeout, clearTimeout, confirm: () => true, btoa, atob };
+  const ctx = { window: win, document, localStorage, console, setTimeout, clearTimeout, confirm: () => true, btoa, atob, crypto: globalThis.crypto };
   vm.createContext(ctx);
   vm.runInContext(WIKI_JS, ctx);
 

@@ -1,2 +1,13 @@
-mkdocs-material
-pymdown-extensions
+# Pinned versions — same set we built with locally, no surprise upgrades.
+# 测试: tests/test_requirements.py 会在 build 前检查这些跟 pip freeze 对得上。
+#
+# 更新流程：
+#   1.  .venv/bin/pip install -U mkdocs-material pymdown-extensions
+#   2.  跑 mkdocs build --strict 看有没有 deprecation
+#   3.  把 .venv/bin/pip freeze 里 mkdocs/mkdocs-material/pymdown-extensions 同步过来
+#   4.  跑 make test
+
+mkdocs==1.6.1
+mkdocs-material==9.7.6
+mkdocs-material-extensions==1.3.1
+pymdown-extensions==10.21.3

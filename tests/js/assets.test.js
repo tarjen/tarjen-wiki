@@ -16,9 +16,9 @@ function sha384B64(buf) {
   return 'sha384-' + crypto.createHash('sha384').update(buf).digest('base64');
 }
 
-// 1) edit-md 里的 marked.min.js SRI hash 必须和磁盘文件一致
-test('edit-md SRI hash for marked.min.js matches the file', () => {
-  const html = readUtf8(path.join(REPO, 'docs/edit-md/index.html'));
+// 1) 合并后 editor 里的 marked.min.js SRI hash 必须和磁盘文件一致
+test('editor SRI hash for marked.min.js matches the file', () => {
+  const html = readUtf8(path.join(REPO, 'docs/editor/index.html'));
   const m = /src="\.\.\/assets\/marked\.min\.js"[^>]*integrity="([^"]+)"/.exec(html);
   assert.ok(m, 'should declare integrity attribute on marked.min.js <script>');
 
@@ -28,36 +28,34 @@ test('edit-md SRI hash for marked.min.js matches the file', () => {
   assert.equal(m[1], expected, 'SRI hash must match the actual file content');
 });
 
-// 2) 两个编辑器都得有 CSP
-test('editor + edit-md declare a Content-Security-Policy meta tag', () => {
-  for (const f of ['docs/editor/index.html', 'docs/edit-md/index.html']) {
-    const html = readUtf8(path.join(REPO, f));
-    assert.match(html, /http-equiv="Content-Security-Policy"/, f + ' missing CSP meta');
-  }
+// 2) 合并后的 editor 有 CSP
+test('editor declares a Content-Security-Policy meta tag', () => {
+  const html = readUtf8(path.join(REPO, 'docs/editor/index.html'));
+  assert.match(html, /http-equiv="Content-Security-Policy"/, 'editor missing CSP meta');
 });
 
-// 3) CSP 应该 connect-src 允许 GitHub API
+// 3) editor 的 CSP 必须同时允许 api.github.com 和 raw.githubusercontent.com
 test('CSP allows api.github.com and raw.githubusercontent.com', () => {
-  for (const f of ['docs/editor/index.html', 'docs/edit-md/index.html']) {
-    const html = readUtf8(path.join(REPO, f));
-    const m = /Content-Security-Policy" content="([^"]+)"/.exec(html);
-    assert.ok(m, f + ' missing CSP');
-    const csp = m[1];
-    assert.match(csp, /https:\/\/api\.github\.com/, f + ' should allow api.github.com');
-  }
-  // edit-md 还需要 raw.githubusercontent
-  const editMd = readUtf8(path.join(REPO, 'docs/edit-md/index.html'));
-  assert.match(editMd, /https:\/\/raw\.githubusercontent\.com/,
-    'edit-md should allow raw.githubusercontent.com');
+  const html = readUtf8(path.join(REPO, 'docs/editor/index.html'));
+  const m = /Content-Security-Policy" content="([^"]+)"/.exec(html);
+  assert.ok(m, 'editor missing CSP');
+  const csp = m[1];
+  assert.match(csp, /https:\/\/api\.github\.com/, 'editor CSP should allow api.github.com');
+  assert.match(csp, /https:\/\/raw\.githubusercontent\.com/,
+    'editor CSP should allow raw.githubusercontent.com (needed by view=md loadFile fallback)');
 });
 
-// 4) 编辑器不再引用 cdn.jsdelivr.net（防止 CDN 投毒）
-test('no editor or edit-md references jsdelivr CDN', () => {
-  for (const f of ['docs/editor/index.html', 'docs/edit-md/index.html']) {
-    const html = readUtf8(path.join(REPO, f));
-    assert.doesNotMatch(html, /cdn\.jsdelivr\.net/,
-      f + ' should not reference jsdelivr CDN — marked is now self-hosted');
-  }
+// 4) editor 不再引用 cdn.jsdelivr.net（防止 CDN 投毒）
+test('editor does not reference jsdelivr CDN', () => {
+  const html = readUtf8(path.join(REPO, 'docs/editor/index.html'));
+  assert.doesNotMatch(html, /cdn\.jsdelivr\.net/,
+    'editor should not reference jsdelivr CDN — marked is now self-hosted');
+});
+
+// 5) docs/edit-md/ 已被合并到 editor/，目录应该消失
+test('docs/edit-md/ directory has been removed (merged into editor/)', () => {
+  assert.equal(fs.existsSync(path.join(REPO, 'docs/edit-md/index.html')), false,
+    'docs/edit-md/index.html should be deleted; the md view lives at editor/?view=md');
 });
 
 // 5) marked.min.js 文件本身存在 + 大小合理
