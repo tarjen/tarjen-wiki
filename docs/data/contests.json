@@ -1,0 +1,244 @@
+{
+  "header": [
+    "slug",
+    "name",
+    "date",
+    "solved",
+    "total",
+    "problems",
+    "link",
+    "tags"
+  ],
+  "rows": [
+    {
+      "slug": "2015-icpc-wf-marrakesh",
+      "name": "ACM-ICPC World Finals 2015 – Marrakesh",
+      "date": "2025.8.22",
+      "solved": 9,
+      "total": 13,
+      "problems": "O;O;O;.;O;O;O;O;O;O;.;.;.",
+      "link": "",
+      "tags": "#icpc #world-finals #2015"
+    },
+    {
+      "slug": "2016-icpc-wf-phuket",
+      "name": "ACM-ICPC World Finals 2016 – Phuket",
+      "date": "2025.8.03",
+      "solved": 7,
+      "total": 13,
+      "problems": "O;O;.;O;O;.;O;.;O;.;.;.;.",
+      "link": "",
+      "tags": "#icpc #world-finals #2016"
+    },
+    {
+      "slug": "2017-icpc-wf-rapid-city",
+      "name": "ACM-ICPC World Finals 2017 – Rapid City",
+      "date": "2025.8.01",
+      "solved": 7,
+      "total": 12,
+      "problems": "O;.;O;O;.;O;O;.;O;.;.;.",
+      "link": "",
+      "tags": "#icpc #world-finals #2017"
+    },
+    {
+      "slug": "2018-icpc-wf-beijing",
+      "name": "ACM-ICPC World Finals 2018 – Beijing",
+      "date": "2025.7.26",
+      "solved": 7,
+      "total": 11,
+      "problems": "O;O;O;.;O;O;.;O;.;.;.",
+      "link": "",
+      "tags": "#icpc #world-finals #2018"
+    },
+    {
+      "slug": "2019-icpc-wf-porto",
+      "name": "The 2019 ICPC World Finals Porto",
+      "date": "2025.7.20",
+      "solved": 7,
+      "total": 12,
+      "problems": "O;.;O;O;O;.;O;.;O;.;.;.",
+      "link": "",
+      "tags": "#icpc #world-finals #2019"
+    },
+    {
+      "slug": "2022-icpc-moscow",
+      "name": "The 2022 ICPC Moscow Regional Contest",
+      "date": "2025.7.18",
+      "solved": 8,
+      "total": 12,
+      "problems": "O;O;O;O;.;O;O;.;O;.;.;.",
+      "link": "",
+      "tags": "#icpc #regional #2022"
+    },
+    {
+      "slug": "2024-icpc-wf-astana",
+      "name": "The 2024 ICPC World Finals Astana",
+      "date": "2025.7.13",
+      "solved": 6,
+      "total": 12,
+      "problems": "O;O;O;.;.;O;.;O;.;.;.;.",
+      "link": "",
+      "tags": "#icpc #world-finals #2024"
+    },
+    {
+      "slug": "2018-moscow-red-panda",
+      "name": "Moscow Pre-Finals Workshops 2018. Day 3. Moscow SU Red Panda Contest",
+      "date": "2025.7.8",
+      "solved": 7,
+      "total": 13,
+      "problems": "O;.;O;O;.;O;O;.;O;.;.;.;.",
+      "link": "",
+      "tags": "#camp #moscow #2018"
+    },
+    {
+      "slug": "2025-icpc-nac",
+      "name": "The 2025 ICPC North America Championship",
+      "date": "2025.7.7",
+      "solved": 7,
+      "total": 13,
+      "problems": "O;O;O;.;.;O;O;O;.;.;.;.;.",
+      "link": "",
+      "tags": "#icpc #nac #2025"
+    },
+    {
+      "slug": "2024-petrz-summer-day7",
+      "name": "Petrozavodsk Summer 2024. Day 7. Farewell Contest",
+      "date": "2025.2.22",
+      "solved": 7,
+      "total": 13,
+      "problems": "O;O;.;O;O;.;O;.;O;.;.;.;.",
+      "link": "",
+      "tags": "#camp #petrozavodsk #2024"
+    },
+    {
+      "slug": "2024-swerc",
+      "name": "2024-2025 ICPC Southwestern European Regional Contest (SWERC 2024)",
+      "date": "2025.2.18",
+      "solved": 8,
+      "total": 13,
+      "problems": "O;O;O;O;.;O;O;.;O;.;.;.;.",
+      "link": "",
+      "tags": "#icpc #swerc #2024"
+    },
+    {
+      "slug": "2017-icpc-asia-tsukuba",
+      "name": "2017-2018 ACM-ICPC, Asia Tsukuba Regional Contest",
+      "date": "2025.1.18",
+      "solved": 7,
+      "total": 11,
+      "problems": "O;O;.;O;O;.;O;O;.;O;O",
+      "link": "",
+      "tags": "#icpc #regional #2017"
+    },
+    {
+      "slug": "2025-heilongjiang-provincial",
+      "name": "The 17th Helongjiang Provincial Collegiate Programming Contest",
+      "date": "2025.1.15",
+      "solved": 10,
+      "total": 12,
+      "problems": "O;O;O;O;O;O;O;O;O;O;O;O",
+      "link": "",
+      "tags": "#provincial #2025"
+    },
+    {
+      "slug": "2021-petrz-winter-day1",
+      "name": "Petrozavodsk Winter 2021. Day 1. Jagiellonian U Contest",
+      "date": "2024.12.26",
+      "solved": 8,
+      "total": 13,
+      "problems": "O;O;O;.;O;O;O;.;O;.;.;.;.",
+      "link": "",
+      "tags": "#camp #petrozavodsk #2021"
+    },
+    {
+      "slug": "2021-amppz",
+      "name": "The 2021 ICPC Polish Collegiate Programming Contest (AMPPZ 2021)",
+      "date": "2024.12.19",
+      "solved": 8,
+      "total": 13,
+      "problems": "O;O;O;O;.;.;O;O;.;O;.;.;.",
+      "link": "",
+      "tags": "#amppz #2021"
+    },
+    {
+      "slug": "2024-nerc-finals",
+      "name": "2024-2025 ICPC, NERC, Northern Eurasia Finals",
+      "date": "2024.12.18",
+      "solved": 7,
+      "total": 13,
+      "problems": "O;.;O;O;O;.;O;.;O;.;.;.;.",
+      "link": "",
+      "tags": "#icpc #nerc #2024"
+    },
+    {
+      "slug": "2021-petrz-winter-day3",
+      "name": "Petrozavodsk Winter 2021. Day 3: Nordic+ Contest 2020",
+      "date": "2024.12.13",
+      "solved": 6,
+      "total": 12,
+      "problems": "O;O;.;O;.;.;O;O;.;.;.;.",
+      "link": "",
+      "tags": "#camp #petrozavodsk #2021"
+    },
+    {
+      "slug": "2019-amppz",
+      "name": "The 2019 Polish Collegiate Programming Contest (AMPPZ 2019)",
+      "date": "2024.12.11",
+      "solved": 8,
+      "total": 12,
+      "problems": "O;O;.;O;O;O;O;.;O;O;.;.",
+      "link": "",
+      "tags": "#amppz #2019"
+    },
+    {
+      "slug": "2024-icpc-asia-jakarta",
+      "name": "2024-2025 ICPC Asia Jakarta Regional Contest",
+      "date": "2024.12.9",
+      "solved": 10,
+      "total": 13,
+      "problems": "O;O;O;O;O;O;O;O;O;.;.;.;.",
+      "link": "",
+      "tags": "#icpc #regional #2024"
+    },
+    {
+      "slug": "2024-nwerc",
+      "name": "2024-2025 ICPC Northwestern Europe Regional Programming Contest (NWERC 2024)",
+      "date": "2024.12.6",
+      "solved": 10,
+      "total": 13,
+      "problems": "O;O;O;O;O;O;O;O;O;.;.;.;.",
+      "link": "",
+      "tags": "#icpc #regional #nwerc #2024"
+    },
+    {
+      "slug": "2024-ucp-southwestern-europe",
+      "name": "The 3rd Universal Cup. Stage 18: Southwestern Europe",
+      "date": "2024.12.3",
+      "solved": 8,
+      "total": 13,
+      "problems": "O;O;O;.;O;O;O;O;.;.;.;.;.",
+      "link": "",
+      "tags": "#universal-cup #2024"
+    },
+    {
+      "slug": "2024-icpc-asia-shenyang",
+      "name": "The 2024 ICPC Asia Shenyang Regional Programming Contest",
+      "date": "2024.11.27",
+      "solved": 5,
+      "total": 13,
+      "problems": "O;.;O;O;.;O;.;.;.;O;.;.;.",
+      "link": "",
+      "tags": "#icpc #regional #2024"
+    },
+    {
+      "slug": "2024-icpc-asia-taichung",
+      "name": "2024 ICPC Asia Taichung Regional Contest",
+      "date": "2024.11.24",
+      "solved": 10,
+      "total": 14,
+      "problems": "O;O;O;O;O;O;O;O;O;.;.;.;.;.",
+      "link": "https://codeforces.com/gym/105576",
+      "tags": "#icpc #regional #2024"
+    }
+  ]
+}

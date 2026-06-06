@@ -1,0 +1,38 @@
+/* 总表微调：首列比赛名不挤压、单元格里符号居中紧凑 */
+.md-typeset table:not([class]) th:first-child,
+.md-typeset table:not([class]) td:first-child {
+  min-width: 18em;
+  white-space: nowrap;
+}
+
+/* 让首列在窄屏下允许换行 */
+@media screen and (max-width: 60em) {
+  .md-typeset table:not([class]) th:first-child,
+  .md-typeset table:not([class]) td:first-child {
+    min-width: 0;
+    white-space: normal;
+  }
+}
+
+/* 总表里的题目列（A/B/C...）内容居中 */
+.md-typeset table.contest-summary td:nth-child(n+4) {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.md-typeset table.contest-summary th:nth-child(n+4) {
+  text-align: center;
+}
+
+/* 元信息表紧凑一点 */
+.md-typeset table.meta td,
+.md-typeset table.meta th {
+  padding: 0.4em 0.8em;
+}
+
+/* 详情页的题目块之间留点空隙 */
+.contest-problem {
+  margin-bottom: 1.5em;
+  padding-bottom: 1em;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
