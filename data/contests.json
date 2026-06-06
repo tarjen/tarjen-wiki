@@ -43,10 +43,10 @@
     {
       "slug": "2018-icpc-wf-beijing",
       "name": "ACM-ICPC World Finals 2018 – Beijing",
-      "date": "2025.7.26",
-      "solved": 7,
+      "date": "2025.07.26",
+      "solved": 9,
       "total": 11,
-      "problems": "O;O;O;.;O;O;.;O;.;.;.",
+      "problems": "Ø;Ø;Ø;!;Ø;O;.;Ø;O;Ø;O",
       "link": "",
       "tags": "#icpc #world-finals #2018"
     },
