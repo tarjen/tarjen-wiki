@@ -23,10 +23,10 @@
     {
       "slug": "2016-icpc-wf-phuket",
       "name": "ACM-ICPC World Finals 2016 – Phuket",
-      "date": "2025.8.03",
+      "date": "2025.08.03",
       "solved": 7,
       "total": 13,
-      "problems": "O;O;.;O;O;.;O;.;O;.;.;.;.",
+      "problems": "O;O;Ø;O;O;.;O;.;O;.;.;.;.",
       "link": "",
       "tags": "#icpc #world-finals #2016"
     },
