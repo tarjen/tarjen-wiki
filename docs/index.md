@@ -23,7 +23,7 @@
 | [The 2024 ICPC World Finals Astana](contests/2024-icpc-wf-astana.md) | 2025.7.13 | 5/5/12 | [✎](editor/?slug=2024-icpc-wf-astana) | O | O | O | . | . | O | . | O | . | . | . | . |  |  |
 | [Moscow Pre-Finals Workshops 2018. Day 3. Moscow SU Red Panda Contest](contests/2018-moscow-red-panda.md) | 2025.7.8 | 6/6/13 | [✎](editor/?slug=2018-moscow-red-panda) | O | . | O | O | . | O | O | . | O | . | . | . | . |  |
 | [The 2025 ICPC North America Championship](contests/2025-icpc-nac.md) | 2025.7.7 | 6/6/13 | [✎](editor/?slug=2025-icpc-nac) | O | O | O | . | . | O | O | O | . | . | . | . | . |  |
-| [Petrozavodsk Summer 2024. Day 7. Farewell Contest](contests/2024-petrz-summer-day7.md) | 2025.2.22 | 6/6/13 | [✎](editor/?slug=2024-petrz-summer-day7) | O | O | . | O | O | . | O | . | O | . | . | . | . |  |
+| [Petrozavodsk Summer 2024. Day 7. Farewell Contest](contests/2024-petrz-summer-day7.md) | 2025.2.22 | 7/6/13 | [✎](editor/?slug=2024-petrz-summer-day7) | O | O | . | O | O | . | O | . | O | . | . | . | Ø |  |
 | [2024-2025 ICPC Southwestern European Regional Contest (SWERC 2024)](contests/2024-swerc.md) | 2025.2.18 | 7/7/13 | [✎](editor/?slug=2024-swerc) | O | O | O | O | . | O | O | . | O | . | . | . | . |  |
 | [2017-2018 ACM-ICPC, Asia Tsukuba Regional Contest](contests/2017-icpc-asia-tsukuba.md) | 2025.1.18 | 8/8/11 | [✎](editor/?slug=2017-icpc-asia-tsukuba) | O | O | . | O | O | . | O | O | . | O | O |  |  |  |
 | [The 17th Helongjiang Provincial Collegiate Programming Contest](contests/2025-heilongjiang-provincial.md) | 2025.1.15 | 12/12/12 | [✎](editor/?slug=2025-heilongjiang-provincial) | O | O | O | O | O | O | O | O | O | O | O | O |  |  |
@@ -42,7 +42,7 @@
 ## 统计
 
 - 累计场次：<!-- SYNC:COUNT -->23<!-- /SYNC:COUNT -->
-- 累计通过：约 <!-- SYNC:SOLVED -->163<!-- /SYNC:SOLVED --> 题
+- 累计通过：约 <!-- SYNC:SOLVED -->164<!-- /SYNC:SOLVED --> 题
 
 ## 维护说明
 
