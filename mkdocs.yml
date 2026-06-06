@@ -1,9 +1,9 @@
 site_name: 比赛记录 Wiki
 site_description: 编程比赛记录与题解
-site_author: minimaxi
+site_author: tarjen
 
-repo_name: minimaxi/wiki
-repo_url: https://github.com/minimaxi/wiki
+repo_name: tarjen/tarjen-wiki
+repo_url: https://github.com/tarjen/tarjen-wiki
 edit_uri: edit/main/docs/
 
 docs_dir: docs
@@ -87,7 +87,7 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/minimaxi
+      link: https://github.com/tarjen
   generator: false
 
 extra_css:
