@@ -1,0 +1,148 @@
+/* docs/assets/wiki.css
+   共享样式：被 /editor/ 和 /edit-md/ 两个页面 <link rel="stylesheet" href="../assets/wiki.css"> 引入。
+   编辑器特有的（cells、cycle-hint、stat-grid、editor-grid、pane 等）保留在各自 HTML 的 <style> 里。 */
+
+:root {
+  --bg: #fafafa;
+  --fg: #1a1a1a;
+  --muted: #666;
+  --accent: #3f51b5;
+  --border: #e0e0e0;
+  --code-bg: #f0f0f0;
+  --card-bg: #fff;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06);
+  --c-O: #4caf50;
+  --c-fix: #ff9800;
+  --c-try: #f44336;
+  --c-dot: #bdbdbd;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a1a;
+    --fg: #e0e0e0;
+    --muted: #999;
+    --accent: #7986cb;
+    --border: #333;
+    --code-bg: #2a2a2a;
+    --card-bg: #242424;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 1.5em;
+  line-height: 1.55;
+}
+h1 { font-weight: 600; margin: 0 0 0.3em; font-size: 1.4em; }
+h2 { font-weight: 500; margin-top: 1.6em; font-size: 1.1em; }
+a { color: var(--accent); }
+code {
+  font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+  background: var(--code-bg);
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+  font-size: 0.92em;
+}
+.hint { color: var(--muted); font-size: 0.85em; }
+
+button.btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 0.5em 1em;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-family: inherit;
+}
+button.btn:hover:not(:disabled) { opacity: 0.9; }
+button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+button.btn.sec {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+button.btn.tiny { padding: 0.3em 0.7em; font-size: 0.85em; }
+button.btn.primary {
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  padding: 0.55em 1.2em;
+}
+
+.toast {
+  position: fixed;
+  bottom: 2em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--fg);
+  color: var(--bg);
+  padding: 0.6em 1.2em;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 100;
+}
+.toast.show { opacity: 0.95; }
+.toast.error { background: var(--c-try); color: white; }
+
+.status-pill {
+  display: inline-block;
+  padding: 0.15em 0.6em;
+  border-radius: 12px;
+  font-size: 0.8em;
+  background: var(--code-bg);
+  color: var(--muted);
+}
+.status-pill.dirty { background: #fff3e0; color: var(--c-fix); }
+.status-pill.saved { background: #e8f5e9; color: var(--c-O); }
+
+.nav-tip {
+  background: var(--code-bg);
+  border-left: 3px solid var(--accent);
+  padding: 0.8em 1em;
+  margin-top: 0.5em;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.92em;
+}
+.edit-banner {
+  background: #fff3e0;
+  color: #5d4037;
+  border-left: 3px solid #ff9800;
+  padding: 0.8em 1em;
+  margin-top: 1em;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.95em;
+}
+@media (prefers-color-scheme: dark) {
+  .edit-banner { background: rgba(255, 152, 0, 0.15); color: #ffcc80; }
+}
+.edit-banner .hint { color: inherit; opacity: 0.7; margin-left: 0.5em; }
+
+details.token-config {
+  margin-top: 1em;
+  padding: 0.6em 0.8em;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+details.token-config summary { cursor: pointer; font-weight: 500; }
+details.token-config input[type="password"] {
+  width: 100%;
+  max-width: 400px;
+  padding: 0.4em 0.6em;
+  margin-top: 0.5em;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85em;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+details.token-config .row { margin-top: 0.5em; display: flex; gap: 0.5em; align-items: center; }

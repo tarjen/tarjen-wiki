@@ -4,53 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>添加比赛 — Wiki Editor</title>
+  <link rel="stylesheet" href="../assets/wiki.css">
+  <script src="../assets/wiki.js" defer></script>
   <style>
-    :root {
-      --bg: #fafafa;
-      --fg: #1a1a1a;
-      --muted: #666;
-      --accent: #3f51b5;
-      --border: #e0e0e0;
-      --code-bg: #f0f0f0;
-      --card-bg: #fff;
-      --shadow: 0 1px 3px rgba(0,0,0,0.06);
-      --c-O: #4caf50;
-      --c-fix: #ff9800;
-      --c-try: #f44336;
-      --c-dot: #bdbdbd;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #1a1a1a;
-        --fg: #e0e0e0;
-        --muted: #999;
-        --accent: #7986cb;
-        --border: #333;
-        --code-bg: #2a2a2a;
-        --card-bg: #242424;
-        --shadow: 0 1px 3px rgba(0,0,0,0.4);
-        --c-dot: #555;
-      }
-    }
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-      background: var(--bg);
-      color: var(--fg);
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 1.5em;
-      line-height: 1.55;
-    }
-    h1 { font-weight: 600; margin: 0 0 0.3em; }
-    h2 { font-weight: 500; margin-top: 1.6em; font-size: 1.1em; }
-    code {
-      font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
-      background: var(--code-bg);
-      padding: 0.1em 0.4em;
-      border-radius: 3px;
-      font-size: 0.92em;
-    }
+    /* 编辑器特有：max-width、cells、cycle-hint、stat-grid、save-panel 等 */
+    body { max-width: 860px; }
+
     .card {
       background: var(--card-bg);
       border-radius: 8px;
@@ -117,7 +76,6 @@
     .cell.s-bang { background: var(--c-try); color: white; border-color: var(--c-try); }
     .cell.s-bang .cell-label { color: rgba(255,255,255,0.8); opacity: 1; }
 
-    /* 点击提示 */
     .cycle-hint {
       display: flex;
       gap: 0.5em;
@@ -151,46 +109,6 @@
       overflow-y: auto;
     }
 
-    button.btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 0.65em 1.3em;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1em;
-      font-family: inherit;
-      margin-right: 0.5em;
-      margin-top: 0.5em;
-    }
-    button.btn:hover { opacity: 0.9; }
-    button.btn.sec {
-      background: transparent;
-      color: var(--accent);
-      border: 1px solid var(--accent);
-    }
-    button.btn.tiny {
-      padding: 0.3em 0.7em;
-      font-size: 0.85em;
-    }
-
-    .toast {
-      position: fixed;
-      bottom: 2em;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--fg);
-      color: var(--bg);
-      padding: 0.6em 1.2em;
-      border-radius: 4px;
-      opacity: 0;
-      transition: opacity 0.2s;
-      pointer-events: none;
-      z-index: 100;
-    }
-    .toast.show { opacity: 0.95; }
-    .toast.error { background: #f44336; color: white; }
-
     .stat-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -217,77 +135,7 @@
     .stat-cell:nth-child(1) .stat-value { color: var(--c-O); }
     .stat-cell:nth-child(2) .stat-value { color: var(--c-fix); }
 
-    .file-label {
-      display: inline-block;
-      background: transparent;
-      color: var(--accent);
-      border: 1px dashed var(--accent);
-      padding: 0.5em 1em;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.95em;
-    }
-    .file-label:hover { background: var(--code-bg); }
-    input[type="file"] { display: none; }
-
-    .existing-list {
-      max-height: 180px;
-      overflow-y: auto;
-      font-size: 0.88em;
-      color: var(--muted);
-      margin-top: 0.5em;
-    }
-    .existing-list code { font-size: 0.85em; }
-
-    .nav-tip {
-      background: var(--code-bg);
-      border-left: 3px solid var(--accent);
-      padding: 0.8em 1em;
-      margin-top: 1em;
-      border-radius: 0 4px 4px 0;
-      font-size: 0.92em;
-    }
-    .edit-banner {
-      background: #fff3e0;
-      color: #5d4037;
-      border-left: 3px solid #ff9800;
-      padding: 0.8em 1em;
-      margin-top: 1em;
-      border-radius: 0 4px 4px 0;
-      font-size: 0.95em;
-    }
-    @media (prefers-color-scheme: dark) {
-      .edit-banner {
-        background: rgba(255, 152, 0, 0.15);
-        color: #ffcc80;
-      }
-    }
-    .edit-banner .hint { color: inherit; opacity: 0.7; margin-left: 0.5em; }
-
-    select {
-      width: 100%;
-      padding: 0.55em 0.7em;
-      font-size: 1em;
-      font-family: inherit;
-      background: var(--bg);
-      color: var(--fg);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      outline: none;
-    }
-    select:focus { border-color: var(--accent); }
-
-    .shortcuts {
-      display: flex;
-      gap: 0.5em;
-      margin-top: 1em;
-      flex-wrap: wrap;
-    }
-
-    /* 保存面板 */
-    .save-panel {
-      border-left: 3px solid #4caf50;
-    }
+    .save-panel { border-left: 3px solid var(--c-O); }
     .save-actions {
       display: flex;
       gap: 0.5em;
@@ -299,49 +147,19 @@
       padding: 0.7em 1.4em;
       font-weight: 600;
     }
-    .save-hint {
-      margin-top: 1em;
-      padding-top: 0.8em;
-      border-top: 1px dashed var(--border);
-      font-size: 0.88em;
-      line-height: 1.5;
-    }
-    .diff-old {
-      background: #fbe9e7;
-      border-left: 3px solid #e57373;
-    }
-    .diff-new {
-      background: #e8f5e9;
-      border-left: 3px solid #66bb6a;
-    }
+    .diff-old { background: #fbe9e7; border-left: 3px solid #e57373; }
+    .diff-new { background: #e8f5e9; border-left: 3px solid #66bb6a; }
     @media (prefers-color-scheme: dark) {
       .diff-old { background: rgba(229, 115, 115, 0.12); }
       .diff-new { background: rgba(102, 187, 106, 0.12); }
     }
 
-    /* Token 配置 */
-    .token-config {
-      margin-top: 1em;
-      padding: 0.6em 0.8em;
-      background: var(--code-bg);
-      border-radius: 4px;
-      font-size: 0.92em;
-    }
-    .token-config summary {
-      cursor: pointer;
-      font-weight: 500;
-      padding: 0.3em 0;
-    }
-    .token-config input[type="password"] {
-      width: 100%;
+    /* 编辑器按钮：原版有更大 padding 和外边距 */
+    button.btn {
+      padding: 0.65em 1.3em;
+      font-size: 1em;
+      margin-right: 0.5em;
       margin-top: 0.5em;
-      padding: 0.5em 0.7em;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.9em;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      background: var(--bg);
-      color: var(--fg);
     }
   </style>
 </head>
@@ -349,12 +167,12 @@
   <h1>📝 添加比赛</h1>
 
   <div class="nav-tip" id="mode-banner">
-    <strong>流程：</strong>填表 → 点格子 → 复制 CSV 行 → 粘到 <code>contests.csv</code> 末尾 → 跑 <code>python3 tools/sync.py</code> → <code>mkdocs gh-deploy</code>
+    <strong>流程：</strong>填表 → 点格子 → 点底部「💾 保存到 GitHub」自动提交，几秒后页面更新
   </div>
 
   <div class="edit-banner" id="edit-banner" style="display:none;">
     ✏️ 正在编辑：<strong id="editing-name"></strong>
-    <span class="hint">改完后复制 CSV 行，<strong>手动替换</strong> <code>contests.csv</code> 中对应行（slug 不变）</span>
+    <span class="hint">改完直接点「💾 保存到 GitHub」即可</span>
     <button class="btn sec tiny" id="btn-exit-edit" style="float:right;">+ 改成新增模式</button>
   </div>
 
@@ -403,7 +221,7 @@
 
     <div class="cells" id="cells"></div>
 
-    <div class="shortcuts">
+    <div style="display:flex;gap:0.5em;margin-top:1em;flex-wrap:wrap;">
       <button class="btn tiny sec" id="fill-rest-o">剩余全标 O</button>
       <button class="btn tiny sec" id="clear-all">全部清除</button>
     </div>
@@ -457,7 +275,7 @@
       <button class="btn primary" id="btn-save-github">💾 保存到 GitHub</button>
     </div>
 
-    <details class="token-config">
+    <details class="token-config" id="token-config">
       <summary>⚙ GitHub Token 配置</summary>
       <p class="hint" style="margin-top: 0.5em;">
         ① 打开 <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">GitHub PAT 设置</a>
@@ -465,7 +283,7 @@
         ③ 复制 token 粘到下面
       </p>
       <input type="password" id="gh-token" placeholder="github_pat_xxx..." autocomplete="off">
-      <div style="margin-top: 0.5em; display: flex; gap: 0.5em; align-items: center;">
+      <div class="row" style="display: flex; gap: 0.5em; align-items: center;">
         <button class="btn sec tiny" id="btn-save-token">保存 Token</button>
         <button class="btn sec tiny" id="btn-clear-token" style="display:none;">清除</button>
         <span class="hint" id="token-status"></span>
@@ -476,20 +294,23 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    const $ = (id) => document.getElementById(id);
-    // 内部状态：'.' (未做) / 'O' (赛时过题) / 'Ø' (赛后补过) / '!' (尝试没过)
-    // 点击循环：. → O → Ø → ! → .
-    const CYCLE = ['.', 'O', 'Ø', '!'];
-    const DISPLAY = { 'O': 'O', '.': '·', 'Ø': 'Ø', '!': '!' };
-    const CLASS = { 'O': 's-O', '.': '', 'Ø': 's-fix', '!': 's-bang' };
+  document.addEventListener('DOMContentLoaded', function () {
+    var W = window.Wiki;
+    var $ = function (id) { return document.getElementById(id); };
+    // 状态：'.' (未做) / 'O' (赛时过题) / 'Ø' (赛后补过) / '!' (尝试没过)
+    var CYCLE = ['.', 'O', 'Ø', '!'];
+    var DISPLAY = { 'O': 'O', '.': '·', 'Ø': 'Ø', '!': '!' };
+    var CLASS = { 'O': 's-O', '.': '', 'Ø': 's-fix', '!': 's-bang' };
+    var LABELS = { 'O': '赛时过题', '.': '未做', 'Ø': '补过', '!': '尝试没过' };
 
-    let cells = [];
-    let existingSlugs = new Set();
-    let csvRows = [];        // 完整解析后的 CSV 行（[{slug, name, date, ...}, ...]）
-    let csvHeader = [];      // CSV header
-    let editingSlug = null;  // 当前正在编辑的比赛 slug（null = 新增模式）
+    var cells = [];
+    var existingSlugs = new Set();
+    var csvRows = [];
+    var csvHeader = [];
+    var editingSlug = null;
+    var saving = false;
 
-    // ---------- slug ----------
+    // ---------- utils ----------
     function slugify(s) {
       return (s || '').toLowerCase()
         .replace(/['']/g, '')
@@ -497,30 +318,74 @@
         .replace(/^-+|-+$/g, '')
         .slice(0, 60);
     }
-
     function clampInt(s, lo, hi, fb) {
-      const n = parseInt(s, 10);
+      var n = parseInt(s, 10);
       if (isNaN(n)) return fb;
       return Math.max(lo, Math.min(hi, n));
     }
+    function csvDateToInputValue(s) {
+      var m = /^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$/.exec((s || '').trim());
+      if (!m) return '';
+      return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+    }
+    function csvEscape(v) {
+      v = (v || '').toString();
+      if (/[",\n\r]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+      return v;
+    }
 
-    // ---------- cells ----------
+    // ---------- form ----------
+    function getRow() {
+      var total = clampInt($('total').value, 1, 26, 13);
+      var problems = cells.slice(0, total).join(';');
+      var solved = cells.filter(function (c) { return c === 'O' || c === 'Ø'; }).length;
+      return {
+        slug: $('slug').value.trim() || slugify($('name').value),
+        name: $('name').value.trim(),
+        date: ($('date').value || '').replace(/-/g, '.'),
+        solved: solved,
+        total: total,
+        problems: problems,
+        link: $('link').value.trim(),
+        tags: $('tags').value.trim(),
+      };
+    }
+    function csvRow(r) {
+      return [r.slug, r.name, r.date, r.solved, r.total, r.problems, r.link, r.tags]
+        .map(csvEscape).join(',');
+    }
+    function buildFullCsv() {
+      var r = getRow();
+      var header = 'slug,name,date,solved,total,problems,link,tags';
+      if (csvRows.length === 0) return header + '\n' + csvRow(r) + '\n';
+      var lines = csvRows.map(function (c) { return csvRow(c); });
+      if (editingSlug) {
+        var idx = csvRows.findIndex(function (c) { return c.slug === editingSlug; });
+        if (idx >= 0) lines[idx] = csvRow(r);
+        else lines.push(csvRow(r));
+      } else {
+        lines.push(csvRow(r));
+      }
+      return header + '\n' + lines.join('\n') + '\n';
+    }
+
+    // ---------- cells UI ----------
     function renderCells() {
-      const total = clampInt($('total').value, 1, 26, 13);
+      var total = clampInt($('total').value, 1, 26, 13);
       while (cells.length < total) cells.push('.');
       while (cells.length > total) cells.pop();
-      const root = $('cells');
+      var root = $('cells');
       root.innerHTML = '';
-      cells.forEach((s, i) => {
-        const div = document.createElement('div');
+      cells.forEach(function (s, i) {
+        var div = document.createElement('div');
         div.className = 'cell ' + CLASS[s];
         div.dataset.idx = i;
-        const letter = String.fromCharCode(65 + i);
-        div.innerHTML = `<span class="cell-label">${letter}</span>${DISPLAY[s]}`;
-        div.title = `${letter}: ${labelOf(s)}`;
+        var letter = String.fromCharCode(65 + i);
+        div.innerHTML = '<span class="cell-label">' + letter + '</span>' + DISPLAY[s];
+        div.title = letter + ': ' + LABELS[s];
         div.tabIndex = 0;
-        div.addEventListener('click', () => cycleCell(i));
-        div.addEventListener('keydown', (e) => {
+        div.addEventListener('click', function () { cycleCell(i); });
+        div.addEventListener('keydown', function (e) {
           if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); cycleCell(i); }
           else if (e.key === 'ArrowRight' && i + 1 < cells.length) {
             e.preventDefault(); root.children[i + 1].focus();
@@ -531,356 +396,109 @@
         root.appendChild(div);
       });
     }
-
-    function labelOf(s) {
-      return ({ 'O': '赛时过题', '.': '未做', 'Ø': '补过', '!': '尝试没过' })[s];
-    }
-
     function cycleCell(i) {
-      const cur = cells[i];
-      const idx = CYCLE.indexOf(cur);
-      const next = CYCLE[(idx + 1) % CYCLE.length];
-      cells[i] = next;
+      var idx = CYCLE.indexOf(cells[i]);
+      cells[i] = CYCLE[(idx + 1) % CYCLE.length];
       renderCells();
       updateAll();
     }
 
-    // ---------- 预览 ----------
-    // CSV 日期 (2024.11.24 / 2024.1.5 / 2024-11-24) → HTML5 date input (2024-11-24)
-    // 注意：HTML5 input 严格要求两数位月份/日期，"2024-1-5" 会被拒为无效值
-    function csvDateToInputValue(s) {
-      const m = /^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$/.exec((s || '').trim());
-      if (!m) return '';
-      return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
-    }
-
-    function csvEscape(v) {
-      v = (v || '').toString();
-      if (/[",\n\r]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
-      return v;
-    }
-
-    function getRow() {
-      const total = clampInt($('total').value, 1, 26, 13);
-      const problems = cells.slice(0, total).join(';');
-      const solved = cells.filter(c => c === 'O' || c === 'Ø').length;
-      return {
-        slug: $('slug').value.trim() || slugify($('name').value),
-        name: $('name').value.trim(),
-        date: ($('date').value || '').replace(/-/g, '.'),
-        solved,
-        total,
-        problems,
-        link: $('link').value.trim(),
-        tags: $('tags').value.trim(),
-      };
-    }
-
-    function csvRow(r) {
-      return [r.slug, r.name, r.date, r.solved, r.total, r.problems, r.link, r.tags]
-        .map(csvEscape).join(',');
-    }
-
+    // ---------- preview & save panel ----------
     function updateAll() {
-      const r = getRow();
+      var r = getRow();
       $('solved').value = r.solved;
-      const inContest = cells.filter(c => c === 'O').length;
-      const totalSolved = cells.filter(c => c === 'O' || c === 'Ø').length;
+      var inContest = cells.filter(function (c) { return c === 'O'; }).length;
+      var totalSolved = cells.filter(function (c) { return c === 'O' || c === 'Ø'; }).length;
       $('stat-total').textContent = totalSolved;
       $('stat-contest').textContent = inContest;
       $('stat-problems').textContent = r.total;
 
-      const slugInput = $('slug');
+      var slugInput = $('slug');
       if (existingSlugs.has(r.slug) && r.slug !== editingSlug) {
-        slugInput.style.borderColor = '#f44336';
+        slugInput.style.borderColor = 'var(--c-try)';
         slugInput.title = '⚠ slug 已在 contests.csv 中存在';
       } else {
         slugInput.style.borderColor = '';
         slugInput.title = '';
       }
-
       renderSavePanel(r);
     }
-
-    // ---------- 保存面板 ----------
-    function buildFullCsv() {
-      const r = getRow();
-      const header = 'slug,name,date,solved,total,problems,link,tags';
-      if (csvRows.length === 0) {
-        // 没加载过整张表，只能拼出单行（提示用户）
-        return header + '\n' + csvRow(r) + '\n';
-      }
-      // 把当前 row 替换进 csvRows 里的对应行（或追加）
-      const lines = csvRows.map(c => csvRow({
-        slug: c.slug, name: c.name, date: c.date,
-        solved: c.solved, total: c.total, problems: c.problems,
-        link: c.link, tags: c.tags,
-      }));
-      if (editingSlug) {
-        const idx = csvRows.findIndex(c => c.slug === editingSlug);
-        if (idx >= 0) lines[idx] = csvRow(r);
-        else lines.push(csvRow(r));
-      } else {
-        lines.push(csvRow(r));
-      }
-      return header + '\n' + lines.join('\n') + '\n';
-    }
-
     function renderSavePanel(r) {
       $('preview-csv').textContent = csvRow(r);
       if (editingSlug) {
-        const old = csvRows.find(c => c.slug === editingSlug);
+        var old = csvRows.find(function (c) { return c.slug === editingSlug; });
         if (old) {
-          const oldCsv = csvRow({
-            slug: old.slug, name: old.name, date: old.date,
-            solved: old.solved, total: old.total, problems: old.problems,
-            link: old.link, tags: old.tags,
-          });
-          $('diff-old').textContent = oldCsv;
+          $('diff-old').textContent = csvRow(old);
           $('diff-new').textContent = csvRow(r);
           $('save-diff').style.display = 'block';
           $('save-mode-hint').innerHTML =
-            `编辑模式：正在改 <code>${escapeHtml(editingSlug)}</code>，` +
-            `下面会显示原行 vs 新行。点「下载完整 CSV」会得到替换后的整张表。`;
+            '编辑模式：正在改 <code>' + W.esc(editingSlug) + '</code>，下面会显示原行 vs 新行。';
           return;
         }
       }
       $('save-diff').style.display = 'none';
       $('save-mode-hint').innerHTML =
-        `新增模式：填好之后点「下载完整 contests.csv」，` +
-        `会得到一张追加了当前这一行的完整 CSV，直接替换本地文件后 commit 即可。`;
+        '新增模式：填好之后点「💾 保存到 GitHub」直接提交到仓库。';
     }
 
-    // ---------- GitHub API 保存 ----------
-    const GH_OWNER = 'tarjen';
-    const GH_REPO = 'tarjen-wiki';
-    const GH_BRANCH = 'main';
-    const GH_PATH = 'contests.csv';
-    const TOKEN_KEY = 'gh_token_v1';
-
-    function getToken() {
-      return localStorage.getItem(TOKEN_KEY) || '';
-    }
-    function setToken(t) {
-      if (t) localStorage.setItem(TOKEN_KEY, t);
-      else localStorage.removeItem(TOKEN_KEY);
-    }
-    function refreshTokenStatus() {
-      const has = !!getToken();
-      $('gh-token').value = has ? '••••••••••' : '';
-      $('btn-clear-token').style.display = has ? '' : 'none';
-      $('token-status').textContent = has ? '✓ 已配置（点击输入框可覆盖）' : '未配置';
-      $('token-status').style.color = has ? 'var(--c-O)' : 'var(--muted)';
-    }
-
-    // base64 UTF-8 encode (避免 btoa() 对非 ASCII 字符炸)
-    function b64encodeUtf8(str) {
-      return btoa(unescape(encodeURIComponent(str)));
-    }
-
-    async function saveToGithub() {
-      let token = getToken();
-      if (!token) {
-        // 试一下输入框
-        const v = $('gh-token').value.trim();
-        if (v && !v.startsWith('••')) {
-          token = v;
-          setToken(token);
-          refreshTokenStatus();
-        }
-      }
-      if (!token) {
-        showToast('先在「GitHub Token 配置」里填 PAT', true);
-        document.querySelector('.token-config').open = true;
-        $('gh-token').focus();
-        return;
-      }
-
-      const btn = $('btn-save-github');
-      btn.disabled = true;
-      const orig = btn.textContent;
-      btn.textContent = '⏳ 保存中…';
-
-      try {
-        // 1. GET 当前文件拿 SHA
-        const getUrl = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}?ref=${GH_BRANCH}`;
-        const getRes = await fetch(getUrl, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/vnd.github+json',
-            'X-GitHub-Api-Version': '2022-11-28',
-          },
-        });
-        if (!getRes.ok) {
-          if (getRes.status === 401) throw new Error('Token 无效或已过期');
-          if (getRes.status === 404) throw new Error('找不到文件（检查仓库/分支/路径）');
-          throw new Error(`GET HTTP ${getRes.status}`);
-        }
-        const file = await getRes.json();
-        const sha = file.sha;
-
-        // 2. 构造新内容
-        const newContent = b64encodeUtf8(buildFullCsv());
-        const r = getRow();
-        const commitMsg = editingSlug
-          ? `update(${editingSlug}): via editor`
-          : `add(${r.slug}): via editor`;
-
-        // 3. PUT
-        const putRes = await fetch(
-          `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`,
-          {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Accept': 'application/vnd.github+json',
-              'X-GitHub-Api-Version': '2022-11-28',
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              message: commitMsg,
-              content: newContent,
-              sha,
-              branch: GH_BRANCH,
-            }),
-          }
-        );
-        if (!putRes.ok) {
-          const err = await putRes.json();
-          throw new Error(`PUT HTTP ${putRes.status}：${err.message || ''}`);
-        }
-        const result = await putRes.json();
-        btn.textContent = '✅ 已保存';
-        showToast('✅ 已提交到 GitHub');
-        // 给出 commit 链接
-        setTimeout(() => {
-          btn.textContent = orig;
-          btn.disabled = false;
-        }, 2500);
-        // 保存成功 → 等几秒让 workflow 跑完再回主页，带 ?_t 强制不读缓存
-        showToast('✅ 已保存，等几秒部署完跳回主页…');
-        setTimeout(() => { window.location.href = '../?_t=' + Date.now(); }, 4000);
-      } catch (e) {
-        showToast('保存失败：' + e.message, true);
-        btn.textContent = orig;
-        btn.disabled = false;
-      }
-    }
-
-    // ---------- 加载已有 CSV ----------
-    function parseCsv(text) {
-      const rows = [];
-      let row = [], cur = '', inQuote = false;
-      for (let i = 0; i < text.length; i++) {
-        const c = text[i];
-        if (inQuote) {
-          if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
-          else if (c === '"') inQuote = false;
-          else cur += c;
-        } else {
-          if (c === '"') inQuote = true;
-          else if (c === ',') { row.push(cur); cur = ''; }
-          else if (c === '\n' || c === '\r') {
-            if (c === '\r' && text[i + 1] === '\n') i++;
-            row.push(cur); cur = '';
-            if (row.length > 1 || row[0] !== '') rows.push(row);
-            row = [];
-          } else cur += c;
-        }
-      }
-      if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
-      return rows;
-    }
-
+    // ---------- load existing data ----------
     function loadContestsData(payload) {
-      // payload: { header: [...], rows: [{slug, name, ...}] }
       csvHeader = payload.header || [];
-      csvRows = (payload.rows || []).map(r => ({
-        slug: r.slug || '',
-        name: r.name || '',
-        date: r.date || '',
-        solved: r.solved != null ? String(r.solved) : '',
-        total: r.total != null ? String(r.total) : '',
-        problems: r.problems || '',
-        link: r.link || '',
-        tags: r.tags || '',
-      }));
+      csvRows = (payload.rows || []).map(function (r) {
+        return {
+          slug: r.slug || '',
+          name: r.name || '',
+          date: r.date || '',
+          solved: r.solved != null ? String(r.solved) : '',
+          total: r.total != null ? String(r.total) : '',
+          problems: r.problems || '',
+          link: r.link || '',
+          tags: r.tags || '',
+        };
+      });
       ingestLoaded();
     }
-
     function ingestLoaded() {
-      existingSlugs = new Set(csvRows.map(r => r.slug).filter(Boolean));
-      // 如果 URL 有 ?slug= 自动预填
-      const urlSlug = new URLSearchParams(location.search).get('slug');
+      existingSlugs = new Set(csvRows.map(function (r) { return r.slug; }).filter(Boolean));
+      var urlSlug = new URLSearchParams(location.search).get('slug');
       if (urlSlug) {
         if (existingSlugs.has(urlSlug)) {
           loadContestIntoForm(urlSlug);
         } else {
-          showToast(`数据里找不到 slug=${urlSlug}`, true);
+          W.toast('数据里找不到 slug=' + urlSlug, true);
           updateAll();
         }
       } else {
         updateAll();
       }
     }
-
     function loadContestIntoForm(slug) {
-      const row = csvRows.find(r => r.slug === slug);
-      if (!row) {
-        showToast('找不到 slug=' + slug, true);
-        return;
-      }
+      var row = csvRows.find(function (r) { return r.slug === slug; });
+      if (!row) { W.toast('找不到 slug=' + slug, true); return; }
       editingSlug = slug;
       $('name').value = row.name;
       $('slug').value = row.slug;
       $('slug').dataset.touched = '1';
-      // 日期：CSV 是 2024.11.24 (也接受 2024.1.5 / 2024-11-24)，input type=date 要 2024-11-24 (两数位)
       $('date').value = csvDateToInputValue(row.date || '');
       $('total').value = clampInt(row.total, 1, 26, 13);
-      // 题目状态：可能是 OOOOOOOOFOOOO 也可能是 O;O;O;.;Ø;O 形式
-      // 兼容两种（虽然 sync.py 只输出 ; 分隔的）
-      const probs = (row.problems || '').replace(/[;,]/g, '').split('').filter(c => c);
+      var probs = (row.problems || '').replace(/[;,]/g, '').split('').filter(Boolean);
       cells = probs.slice(0, 26);
       while (cells.length < 13) cells.push('.');
       $('link').value = row.link || '';
       $('tags').value = row.tags || '';
-      // 显示编辑 banner
       $('edit-banner').style.display = 'block';
-      $('editing-name').textContent = `${row.name} (${row.slug})`;
+      $('editing-name').textContent = row.name + ' (' + row.slug + ')';
       renderCells();
       updateAll();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-
     function exitEditMode() {
       editingSlug = null;
       $('edit-banner').style.display = 'none';
       clearForm();
     }
-
-    function escapeHtml(s) {
-      return (s || '').replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      }[c]));
-    }
-
-    function fetchAndLoad() {
-      // docs/data/contests.json 是 sync.py 生成的，dev server / GitHub Pages 都能 fetch 到
-      fetch('../data/contests.json', { cache: 'no-store' })
-        .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
-        .then(loadContestsData)
-        .catch(e => showToast('加载失败：' + e.message + '（需要 dev server 或 gh-pages 部署）', true));
-    }
-
-    function showToast(msg, isError) {
-      const t = $('toast');
-      t.textContent = msg;
-      t.className = 'toast show' + (isError ? ' error' : '');
-      setTimeout(() => t.className = 'toast', 1800);
-    }
-
     function clearForm() {
-      ['name', 'slug', 'link', 'tags'].forEach(id => $(id).value = '');
+      ['name', 'slug', 'link', 'tags'].forEach(function (id) { $(id).value = ''; });
       $('total').value = 13;
       $('solved').value = 0;
       $('date').value = '';
@@ -889,68 +507,96 @@
       updateAll();
     }
 
-    // ---------- 初始化 ----------
-    function init() {
-      const d = new Date();
-      const pad = n => String(n).padStart(2, '0');
-      $('date').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-      ['name', 'slug', 'date', 'total', 'link', 'tags'].forEach(id => {
-        $(id).addEventListener('input', () => {
-          if (id === 'name' && !$('slug').dataset.touched) {
-            $('slug').value = slugify($('name').value);
-          }
-          if (id === 'total') renderCells();
-          updateAll();
-        });
-      });
-      $('slug').addEventListener('input', () => { $('slug').dataset.touched = '1'; updateAll(); });
-
-      $('fill-rest-o').addEventListener('click', () => {
-        cells = cells.map(c => c === '.' ? 'O' : c);
-        renderCells(); updateAll();
-      });
-      $('clear-all').addEventListener('click', () => {
-        cells = cells.map(() => '.');
-        renderCells(); updateAll();
-      });
-
-      $('btn-save-github').addEventListener('click', saveToGithub);
-      $('btn-save-token').addEventListener('click', () => {
-        const v = $('gh-token').value.trim();
-        if (!v || v.startsWith('••')) { showToast('先在输入框里粘 token', true); return; }
-        setToken(v);
-        refreshTokenStatus();
-        showToast('✓ Token 已保存到 localStorage');
-      });
-      $('btn-clear-token').addEventListener('click', () => {
-        if (!confirm('清除本地存储的 GitHub Token？')) return;
-        setToken('');
-        refreshTokenStatus();
-        showToast('Token 已清除');
-      });
-      $('btn-exit-edit').addEventListener('click', exitEditMode);
-
-      refreshTokenStatus();
-      // 总是预加载数据（用于 diff 显示和下载完整 CSV）
-      fetchAndLoad();
-
-      // 如果 URL 有 ?slug=，标记一下模式
-      const urlSlug = new URLSearchParams(location.search).get('slug');
-      if (urlSlug) {
-        $('mode-banner').innerHTML =
-          `<strong>📝 编辑模式：</strong>slug=<code>${escapeHtml(urlSlug)}</code>。` +
-          `从 <code>data/contests.json</code> 自动加载中…`;
-      } else {
-        $('mode-banner').innerHTML =
-          `<strong>新增模式：</strong>填好之后点底部「💾 保存修改」导出完整 CSV，提交到 git 即可。`;
-      }
-
-      renderCells();
-      updateAll();
+    // ---------- save ----------
+    function isDirty() {
+      // 简单判断：name/slug/date/total/link/tags 任一非空就算 dirty
+      if (saving) return false;
+      return $('name').value.trim() || $('slug').value.trim() || $('link').value.trim() || $('tags').value.trim()
+        || cells.some(function (c) { return c !== '.'; });
     }
 
-    init();
+    async function saveToGithub() {
+      if (!W.getToken()) {
+        // 试一下输入框
+        var v = $('gh-token').value.trim();
+        if (v && v.indexOf('••') !== 0) { W.setToken(v); $('gh-token').value = '••••••••••'; }
+      }
+      if (!W.getToken()) {
+        W.toast('先在「GitHub Token 配置」里填 PAT', true);
+        var d = $('token-config'); if (d) { d.open = true; d.scrollIntoView(); }
+        $('gh-token').focus();
+        return;
+      }
+      var btn = $('btn-save-github');
+      var orig = btn.textContent;
+      btn.disabled = true; saving = true;
+      btn.textContent = '⏳ 保存中…';
+
+      try {
+        var r = getRow();
+        var msg = editingSlug ? 'update(' + editingSlug + '): via editor' : 'add(' + r.slug + '): via editor';
+        await W.commitFile('contests.csv', buildFullCsv(), msg);
+        btn.textContent = '✅ 已保存';
+        W.toast('✅ 已提交到 GitHub');
+        setTimeout(function () { btn.textContent = orig; btn.disabled = false; saving = false; }, 2500);
+        setTimeout(function () { location.href = '../?_t=' + Date.now(); }, 4000);
+      } catch (e) {
+        W.toast('保存失败：' + e.message, true);
+        btn.textContent = orig;
+        btn.disabled = false;
+        saving = false;
+        updateAll();
+      }
+    }
+
+    // ---------- init ----------
+    var d = new Date();
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    $('date').value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+
+    ['name', 'slug', 'date', 'total', 'link', 'tags'].forEach(function (id) {
+      $(id).addEventListener('input', function () {
+        if (id === 'name' && !$('slug').dataset.touched) $('slug').value = slugify($('name').value);
+        if (id === 'total') renderCells();
+        updateAll();
+      });
+    });
+    $('slug').addEventListener('input', function () { $('slug').dataset.touched = '1'; updateAll(); });
+
+    $('fill-rest-o').addEventListener('click', function () {
+      cells = cells.map(function (c) { return c === '.' ? 'O' : c; });
+      renderCells(); updateAll();
+    });
+    $('clear-all').addEventListener('click', function () {
+      cells = cells.map(function () { return '.'; });
+      renderCells(); updateAll();
+    });
+
+    $('btn-save-github').addEventListener('click', saveToGithub);
+    $('btn-exit-edit').addEventListener('click', exitEditMode);
+
+    W.wireTokenUI();
+    W.wireBeforeUnload(isDirty, saveToGithub);
+
+    // 加载已有数据
+    fetch('../data/contests.json', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+      .then(loadContestsData)
+      .catch(function (e) { W.toast('加载失败：' + e.message + '（需要 dev server 或 gh-pages 部署）', true); });
+
+    var urlSlug = new URLSearchParams(location.search).get('slug');
+    if (urlSlug) {
+      $('mode-banner').innerHTML =
+        '<strong>📝 编辑模式：</strong>slug=<code>' + W.esc(urlSlug) + '</code>。' +
+        '从 <code>data/contests.json</code> 自动加载中…';
+    } else {
+      $('mode-banner').innerHTML =
+        '<strong>新增模式：</strong>填好之后点底部「💾 保存到 GitHub」直接提交。';
+    }
+
+    renderCells();
+    updateAll();
+  });
   </script>
 </body>
 </html>

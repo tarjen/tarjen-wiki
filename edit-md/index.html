@@ -4,113 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>编辑详情页 — Wiki</title>
-  <script src="https://cdn.jsdelivr.net/npm/marked@13.0.3/marked.min.js"></script>
+  <link rel="stylesheet" href="../assets/wiki.css">
+  <script src="../assets/wiki.js" defer></script>
+  <script src="../assets/marked.min.js" defer></script>
   <style>
-    :root {
-      --bg: #fafafa;
-      --fg: #1a1a1a;
-      --muted: #666;
-      --accent: #3f51b5;
-      --border: #e0e0e0;
-      --code-bg: #f0f0f0;
-      --card-bg: #fff;
-      --shadow: 0 1px 3px rgba(0,0,0,0.06);
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #1a1a1a;
-        --fg: #e0e0e0;
-        --muted: #999;
-        --accent: #7986cb;
-        --border: #333;
-        --code-bg: #2a2a2a;
-        --card-bg: #242424;
-        --shadow: 0 1px 3px rgba(0,0,0,0.4);
-      }
-    }
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-      background: var(--bg);
-      color: var(--fg);
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 1.5em;
-      line-height: 1.55;
-    }
-    h1 { font-weight: 600; margin: 0 0 0.3em; font-size: 1.4em; }
-    a { color: var(--accent); }
-    code {
-      font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
-      background: var(--code-bg);
-      padding: 0.1em 0.4em;
-      border-radius: 3px;
-      font-size: 0.92em;
-    }
-    .nav-tip {
-      background: var(--code-bg);
-      border-left: 3px solid var(--accent);
-      padding: 0.8em 1em;
-      margin-top: 0.5em;
-      border-radius: 0 4px 4px 0;
-      font-size: 0.92em;
-    }
-    .edit-banner {
-      background: #fff3e0;
-      color: #5d4037;
-      border-left: 3px solid #ff9800;
-      padding: 0.8em 1em;
-      margin-top: 1em;
-      border-radius: 0 4px 4px 0;
-      font-size: 0.95em;
-    }
-    @media (prefers-color-scheme: dark) {
-      .edit-banner { background: rgba(255, 152, 0, 0.15); color: #ffcc80; }
-    }
-    .toolbar {
-      display: flex;
-      gap: 0.5em;
-      align-items: center;
-      flex-wrap: wrap;
-      margin: 1em 0;
-      padding: 0.6em 0.8em;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      box-shadow: var(--shadow);
-    }
-    .toolbar .slug {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.85em;
-      color: var(--muted);
-      margin-right: auto;
-    }
-    .toolbar .slug strong { color: var(--fg); }
-
-    button.btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 0.5em 1em;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9em;
-      font-family: inherit;
-    }
-    button.btn:hover:not(:disabled) { opacity: 0.9; }
-    button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    button.btn.sec {
-      background: transparent;
-      color: var(--accent);
-      border: 1px solid var(--accent);
-    }
-    button.btn.primary {
-      background: var(--accent);
-      color: white;
-      font-weight: 600;
-      padding: 0.55em 1.2em;
-    }
-
+    /* 编辑器特有：左右双栏布局 */
     .editor-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -151,12 +49,7 @@
       color: var(--fg);
       min-height: 50vh;
     }
-    .preview {
-      flex: 1;
-      padding: 1em 1.2em;
-      overflow-y: auto;
-      font-size: 0.95em;
-    }
+    .preview { flex: 1; padding: 1em 1.2em; overflow-y: auto; font-size: 0.95em; }
     .preview h1, .preview h2, .preview h3, .preview h4 {
       border-bottom: 1px solid var(--border);
       padding-bottom: 0.3em;
@@ -185,62 +78,31 @@
     .preview a { color: var(--accent); }
     .preview ul, .preview ol { padding-left: 1.5em; }
 
-    .toast {
-      position: fixed;
-      bottom: 2em;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--fg);
-      color: var(--bg);
-      padding: 0.6em 1.2em;
-      border-radius: 4px;
-      opacity: 0;
-      transition: opacity 0.2s;
-      pointer-events: none;
-      z-index: 100;
-    }
-    .toast.show { opacity: 0.95; }
-    .toast.error { background: #f44336; color: white; }
-
-    .status-pill {
-      display: inline-block;
-      padding: 0.15em 0.6em;
-      border-radius: 12px;
-      font-size: 0.8em;
-      background: var(--code-bg);
-      color: var(--muted);
-    }
-    .status-pill.dirty { background: #fff3e0; color: #ff9800; }
-    .status-pill.saved { background: #e8f5e9; color: #4caf50; }
-
-    details.token-config {
-      margin-top: 1em;
+    .toolbar {
+      display: flex;
+      gap: 0.5em;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 1em 0;
       padding: 0.6em 0.8em;
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 6px;
+      box-shadow: var(--shadow);
     }
-    details.token-config summary { cursor: pointer; font-weight: 500; }
-    details.token-config input[type="password"] {
-      width: 100%;
-      max-width: 400px;
-      padding: 0.4em 0.6em;
-      margin-top: 0.5em;
+    .toolbar .slug {
       font-family: "JetBrains Mono", monospace;
       font-size: 0.85em;
-      background: var(--bg);
-      color: var(--fg);
-      border: 1px solid var(--border);
-      border-radius: 4px;
+      color: var(--muted);
+      margin-right: auto;
     }
-    details.token-config .row { margin-top: 0.5em; display: flex; gap: 0.5em; align-items: center; }
-    .hint { color: var(--muted); font-size: 0.85em; }
+    .toolbar .slug strong { color: var(--fg); }
   </style>
 </head>
 <body>
   <h1>📝 编辑详情页</h1>
   <div class="nav-tip">
-    左侧改 Markdown → 右侧实时预览 → 点 <strong>💾 保存到 GitHub</strong> 直接提交，配了 GitHub Actions 几秒后页面自动更新
+    左侧改 Markdown → 右侧实时预览 → 点 <strong>💾 保存到 GitHub</strong>（或 <code>Ctrl/⌘+S</code>），配了 GitHub Actions 几秒后页面自动更新
   </div>
   <div class="edit-banner" id="edit-banner" style="display:none;"></div>
 
@@ -281,67 +143,29 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    const $ = (id) => document.getElementById(id);
-    const params = new URLSearchParams(location.search);
-    const slug = params.get('slug');
-    const ta = $('md-content');
-    const preview = $('md-preview');
-    let original = '';
-    let dirty = false;
-    let saving = false;
+  document.addEventListener('DOMContentLoaded', function () {
+    var W = window.Wiki;
+    var $ = function (id) { return document.getElementById(id); };
+    var params = new URLSearchParams(location.search);
+    var slug = params.get('slug');
+    var ta = $('md-content');
+    var preview = $('md-preview');
+    var original = '';
+    var saving = false;
 
-    // GitHub 配置
-    const GH_OWNER = 'tarjen';
-    const GH_REPO  = 'tarjen-wiki';
-    const GH_BRANCH = 'main';
-    const GH_PATH = (s) => `docs/contests/${s}.md`;
-    const TOKEN_KEY = 'gh_token_v1';
-
-    const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
-    const setToken = (t) => {
-      if (t) localStorage.setItem(TOKEN_KEY, t);
-      else localStorage.removeItem(TOKEN_KEY);
-    };
-    const refreshTokenStatus = () => {
-      const has = !!getToken();
-      $('gh-token').value = has ? '••••••••••' : '';
-      $('btn-clear-token').style.display = has ? '' : 'none';
-      $('token-status').textContent = has ? '✓ 已配置' : '未配置';
-    };
-
-    // 配置 marked
-    if (window.marked) {
-      marked.setOptions({ breaks: true, gfm: true });
-    }
-
-    function setStatus(text, cls) {
-      const el = $('status-pill');
-      el.textContent = text;
-      el.className = 'status-pill' + (cls ? ' ' + cls : '');
-    }
+    function isDirty() { return ta.value !== original && !saving; }
 
     function updatePreview() {
       try {
-        preview.innerHTML = window.marked ? marked.parse(ta.value) : '<pre>' + escapeHtml(ta.value) + '</pre>';
+        preview.innerHTML = window.marked
+          ? window.marked.parse(ta.value)
+          : '<pre>' + W.esc(ta.value) + '</pre>';
       } catch (e) {
-        preview.innerHTML = '<pre>' + escapeHtml(ta.value) + '</pre>';
+        preview.innerHTML = '<pre>' + W.esc(ta.value) + '</pre>';
       }
-      dirty = ta.value !== original;
-      setStatus(dirty ? '● 未保存' : '✓ 未修改', dirty ? 'dirty' : 'saved');
+      var dirty = isDirty();
+      W.setStatus(dirty ? '● 未保存' : (original ? '✓ 未修改' : ''), dirty ? 'dirty' : 'saved');
       $('btn-save-github').disabled = !dirty || saving;
-    }
-
-    function escapeHtml(s) {
-      return (s || '').replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      }[c]));
-    }
-
-    function showToast(msg, isError) {
-      const t = $('toast');
-      t.textContent = msg;
-      t.className = 'toast show' + (isError ? ' error' : '');
-      setTimeout(() => t.className = 'toast', 1800);
     }
 
     async function loadFile() {
@@ -355,137 +179,71 @@
         return;
       }
       $('slug-name').textContent = slug;
-      $('btn-goto').href = `../contests/${slug}/?_t=${Date.now()}`;
+      $('btn-goto').href = '../contests/' + encodeURIComponent(slug) + '/?_t=' + Date.now();
       $('btn-goto').style.display = '';
-      $('btn-status').href = `../editor/?slug=${encodeURIComponent(slug)}`;
 
-      // 尝试多个源
-      const sources = [
-        `../docs/contests/${slug}.md`,  // dev server
-        `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/docs/contests/${slug}.md`,  // gh-pages
+      // 多个源：dev server 直链 → raw.githubusercontent 兜底
+      var sources = [
+        '../docs/contests/' + encodeURIComponent(slug) + '.md',
+        W.rawUrl('docs/contests/' + encodeURIComponent(slug) + '.md'),
       ];
-      for (const url of sources) {
+      for (var i = 0; i < sources.length; i++) {
         try {
-          const res = await fetch(url, { cache: 'no-store' });
+          var res = await fetch(sources[i], { cache: 'no-store' });
           if (!res.ok) continue;
-          const text = await res.text();
+          var text = await res.text();
           ta.value = text;
           original = text;
           updatePreview();
-          setStatus('✓ 已加载', 'saved');
+          W.setStatus('✓ 已加载', 'saved');
           return;
         } catch (e) { /* 试下一个源 */ }
       }
-      // 全部失败 → 降级
-      ta.value = `# ${slug}\n\n（无法加载，请检查 slug）\n`;
+      ta.value = '# ' + slug + '\n\n（无法加载，请检查 slug）\n';
       original = ta.value;
       $('edit-banner').style.display = 'block';
-      $('edit-banner').innerHTML = `⚠ 没法加载 <code>${escapeHtml(slug)}.md</code>，可能 file:// 协议或 slug 错。`;
+      $('edit-banner').innerHTML = '⚠ 没法加载 <code>' + W.esc(slug) + '.md</code>，可能 file:// 协议或 slug 错。';
       updatePreview();
     }
 
-    // GitHub Contents API: GET SHA → PUT new content
     async function saveToGithub() {
-      if (!slug) { showToast('URL 里没有 ?slug=', true); return; }
-      const token = getToken();
-      if (!token) {
-        showToast('先在下方 ⚙ Token 配置 里填 token', true);
-        $('token-config')?.scrollIntoView?.();
+      if (!slug) { W.toast('URL 里没有 ?slug=', true); return; }
+      if (!W.getToken()) {
+        W.toast('先在下方 ⚙ Token 配置 里填 token', true);
+        var d = $('token-config'); if (d) { d.open = true; d.scrollIntoView(); }
         return;
       }
-      const btn = $('btn-save-github');
-      const orig = btn.textContent;
-      btn.disabled = true;
-      saving = true;
+      var btn = $('btn-save-github');
+      var orig = btn.textContent;
+      btn.disabled = true; saving = true;
       btn.textContent = '⏳ 保存中…';
 
-      const path = GH_PATH(slug);
-      const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`;
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github+json',
-        'User-Agent': 'tarjen-wiki-editor',
-      };
-
       try {
-        // 1) 取当前文件 SHA
-        const getRes = await fetch(`${url}?ref=${GH_BRANCH}`, { headers });
-        if (!getRes.ok) {
-          const err = await getRes.json().catch(() => ({}));
-          throw new Error(err.message || `GET 失败 HTTP ${getRes.status}`);
-        }
-        const meta = await getRes.json();
-        const sha = meta.sha;
-        const commitMsg = `update(${slug}): via markdown editor`;
-
-        // 2) PUT 新内容
-        const content = btoa(unescape(encodeURIComponent(ta.value)));
-        const putRes = await fetch(url, {
-          method: 'PUT',
-          headers: { ...headers, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: commitMsg,
-            content,
-            sha,
-            branch: GH_BRANCH,
-          }),
-        });
-        if (!putRes.ok) {
-          const err = await putRes.json().catch(() => ({}));
-          throw new Error(err.message || `PUT 失败 HTTP ${putRes.status}`);
-        }
-        const result = await putRes.json();
+        await W.commitFile(
+          'docs/contests/' + encodeURIComponent(slug) + '.md',
+          ta.value,
+          'update(' + slug + '): via markdown editor'
+        );
         original = ta.value;
-        dirty = false;
-        setStatus('✅ 已保存', 'saved');
-        showToast('✅ 已提交到 GitHub');
-        setTimeout(() => { btn.textContent = orig; saving = false; }, 1500);
+        W.setStatus('✅ 已保存', 'saved');
+        W.toast('✅ 已提交到 GitHub');
+        setTimeout(function () { btn.textContent = orig; saving = false; }, 1500);
         // 等几秒让 workflow 跑完再跳回比赛页（带 cache-bust）
-        setTimeout(() => { window.location.href = `../contests/${slug}/?_t=${Date.now()}`; }, 4000);
+        setTimeout(function () { location.href = '../contests/' + encodeURIComponent(slug) + '/?_t=' + Date.now(); }, 4000);
       } catch (e) {
-        showToast('保存失败：' + e.message, true);
-        btn.textContent = orig;
-        saving = false;
+        W.toast('保存失败：' + e.message, true);
+        btn.textContent = orig; saving = false;
         updatePreview();
       }
     }
 
-    // 离开提示
-    window.addEventListener('beforeunload', (e) => {
-      if (dirty && !saving) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    });
-
-    // 快捷键 Cmd/Ctrl+S = save
-    document.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        if (!$('btn-save-github').disabled) saveToGithub();
-      }
-    });
-
     ta.addEventListener('input', updatePreview);
     $('btn-save-github').addEventListener('click', saveToGithub);
-    $('btn-save-token').addEventListener('click', () => {
-      const v = $('gh-token').value.trim();
-      if (!v || v.startsWith('••')) { showToast('先在输入框里粘 token', true); return; }
-      setToken(v);
-      refreshTokenStatus();
-      showToast('✓ Token 已保存到 localStorage');
-      updatePreview();
-    });
-    $('btn-clear-token').addEventListener('click', () => {
-      if (!confirm('清除本地存储的 GitHub Token？')) return;
-      setToken('');
-      refreshTokenStatus();
-      showToast('Token 已清除');
-      updatePreview();
-    });
 
-    refreshTokenStatus();
+    W.wireTokenUI();
+    W.wireBeforeUnload(isDirty, saveToGithub);
     loadFile();
+  });
   </script>
 </body>
 </html>
