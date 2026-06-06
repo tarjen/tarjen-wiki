@@ -3,21 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>添加比赛 — Wiki Editor</title>
+  <title>比赛编辑器 — Wiki</title>
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
     script-src 'self' 'unsafe-inline';
     style-src 'self' 'unsafe-inline';
-    img-src 'self' data:;
-    connect-src 'self' https://api.github.com;
+    img-src 'self' data: https:;
+    connect-src 'self' https://api.github.com https://raw.githubusercontent.com;
     object-src 'none';
     base-uri 'self';
     form-action 'self';
   ">
   <link rel="stylesheet" href="../assets/wiki.css">
   <script src="../assets/wiki.js" defer></script>
+  <script src="../assets/marked.min.js" defer
+          integrity="sha384-YTBHtsL8yVTHcLakYNyrOfK3K+QQcXiECuaALJ+3j7Mo681Rtzadt8NR6WrZH+eQ"
+          crossorigin="anonymous"></script>
   <style>
-    /* 编辑器特有：max-width、cells、cycle-hint、stat-grid、save-panel 等 */
+    /* view=table 特有：cells、cycle-hint、stat-grid、save-panel、diff-* */
     body { max-width: 860px; }
 
     .card {
@@ -106,6 +109,7 @@
     }
     .cycle-arrow { color: var(--accent); font-weight: bold; }
 
+    /* save panel 里的 CSV 预览（不是 markdown 预览） */
     .preview {
       background: var(--code-bg);
       padding: 1em;
@@ -174,140 +178,250 @@
   </style>
 </head>
 <body>
-  <h1>📝 添加比赛</h1>
+  <header class="page-header">
+    <h1 id="page-title">📝 比赛编辑器</h1>
+    <a class="btn sec cross-link" id="cross-link" hidden>…</a>
+  </header>
 
-  <div class="nav-tip" id="mode-banner">
-    <strong>流程：</strong>填表 → 点格子 → 点底部「💾 保存到 GitHub」自动提交，几秒后页面更新
-  </div>
+  <!-- ============ view=table (CSV row editor) ============ -->
+  <section id="view-table" hidden>
+    <div class="nav-tip" id="mode-banner">
+      <strong>流程：</strong>填表 → 点格子 → 点底部「💾 保存到 GitHub」自动提交，几秒后页面更新
+    </div>
 
-  <div class="edit-banner" id="edit-banner" style="display:none;">
-    ✏️ 正在编辑：<strong id="editing-name"></strong>
-    <span class="hint">改完直接点「💾 保存到 GitHub」即可</span>
-    <button class="btn sec tiny" id="btn-exit-edit" style="float:right;">+ 改成新增模式</button>
-  </div>
+    <div class="edit-banner" id="edit-banner" style="display:none;">
+      ✏️ 正在编辑：<strong id="editing-name"></strong>
+      <span class="hint">改完直接点「💾 保存到 GitHub」即可</span>
+      <button class="btn sec tiny" id="btn-exit-edit" style="float:right;">+ 改成新增模式</button>
+    </div>
 
-  <div class="card">
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>比赛名</label>
+          <input type="text" id="name" placeholder="2024 ICPC Asia Taichung">
+        </div>
+        <div>
+          <label>Slug <span class="hint">（自动从比赛名生成）</span></label>
+          <input type="text" id="slug" placeholder="2024-icpc-asia-taichung">
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>日期</label>
+          <input type="date" id="date">
+        </div>
+        <div>
+          <label>题目数</label>
+          <input type="number" id="total" value="13" min="1" max="26">
+        </div>
+        <div>
+          <label>通过数 <span class="hint">（自动算：O + Ø）</span></label>
+          <input type="number" id="solved" value="0" min="0" readonly style="opacity:0.6">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>题目状态 <span class="hint">（点格子循环：未做 → O → Ø → ! → 未做）</span></label>
+
+      <div class="cycle-hint">
+        <span class="cycle-step">· 未做</span>
+        <span class="cycle-arrow">→</span>
+        <span class="cycle-step" style="color: var(--c-O); font-weight: bold;">O 赛时过题</span>
+        <span class="cycle-arrow">→</span>
+        <span class="cycle-step" style="color: var(--c-fix); font-weight: bold;">Ø 补过</span>
+        <span class="cycle-arrow">→</span>
+        <span class="cycle-step" style="color: var(--c-try); font-weight: bold;">! 尝试没过</span>
+        <span class="cycle-arrow">→</span>
+        <span class="cycle-step">· 未做</span>
+      </div>
+
+      <div class="cells" id="cells"></div>
+
+      <div style="display:flex;gap:0.5em;margin-top:1em;flex-wrap:wrap;">
+        <button class="btn tiny sec" id="fill-rest-o">剩余全标 O</button>
+        <button class="btn tiny sec" id="clear-all">全部清除</button>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-cell">
+          <div class="stat-label">赛时过题 + 补题</div>
+          <div class="stat-value" id="stat-total">0</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">赛时过题</div>
+          <div class="stat-value" id="stat-contest">0</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-label">总题数</div>
+          <div class="stat-value" id="stat-problems">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>比赛链接 <span class="hint">（选填）</span></label>
+          <input type="text" id="link" placeholder="https://codeforces.com/gym/...">
+        </div>
+        <div>
+          <label>标签 <span class="hint">（选填）</span></label>
+          <input type="text" id="tags" placeholder="#icpc #regional #2024">
+        </div>
+      </div>
+    </div>
+
+    <h2>💾 保存修改</h2>
+    <div class="card save-panel">
+      <div class="nav-tip" id="save-mode-hint"></div>
+
+      <div id="save-diff" style="display:none;">
+        <label>原行（来自 <code>contests.csv</code>）</label>
+        <div class="preview diff-old" id="diff-old"></div>
+        <label style="margin-top: 0.8em;">新行（你的修改）</label>
+        <div class="preview diff-new" id="diff-new"></div>
+      </div>
+
+      <div style="margin-top: 0.8em;">
+        <label>新 CSV 行</label>
+        <div class="preview" id="preview-csv"></div>
+      </div>
+
+      <div class="save-actions">
+        <button class="btn primary" id="btn-save-github-table">💾 保存到 GitHub</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ view=md (markdown detail editor) ============ -->
+  <section id="view-md" hidden>
+    <div class="nav-tip">
+      左侧改 Markdown → 右侧实时预览 → 点 <strong>💾 保存到 GitHub</strong>（或 <code>Ctrl/⌘+S</code>），配了 GitHub Actions 几秒后页面自动更新
+    </div>
+
+    <div class="edit-banner" id="md-banner" style="display:none;"></div>
+
+    <div class="toolbar">
+      <div class="slug">正在编辑：<strong id="slug-name">—</strong></div>
+      <span class="status-pill" id="status-pill">未修改</span>
+      <a class="btn sec" id="btn-goto" style="text-decoration:none;display:none;" target="_blank">👁 查看</a>
+      <button class="btn primary" id="btn-save-github-md" disabled>💾 保存到 GitHub</button>
+    </div>
+
+    <div class="editor-grid">
+      <div class="pane">
+        <div class="pane-header">Markdown 源</div>
+        <textarea id="md-content" spellcheck="false" placeholder="加载中..."></textarea>
+      </div>
+      <div class="pane">
+        <div class="pane-header">实时预览</div>
+        <div class="preview" id="md-preview"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 共享：Token 配置 + Toast ============ -->
+  <details class="token-config" id="token-config">
+    <summary>⚙ GitHub Token 配置</summary>
+    <p class="hint" style="margin-top: 0.5em;">
+      ① 打开 <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">GitHub PAT 设置</a>
+      ② New fine-grained token，仓库只勾 <code>tarjen/tarjen-wiki</code>，权限只勾 <strong>Contents: Read and write</strong>
+      ③ 复制 token 粘到下面；可选：用密码加密后存到 localStorage（关闭浏览器需重新输入密码解锁）
+    </p>
+    <input type="password" id="gh-token" placeholder="github_pat_xxx..." autocomplete="off">
+    <input type="password" id="gh-pwd" placeholder="加密密码（可选；至少 6 位）" autocomplete="off">
     <div class="row">
-      <div>
-        <label>比赛名</label>
-        <input type="text" id="name" placeholder="2024 ICPC Asia Taichung">
-      </div>
-      <div>
-        <label>Slug <span class="hint">（自动从比赛名生成）</span></label>
-        <input type="text" id="slug" placeholder="2024-icpc-asia-taichung">
-      </div>
+      <button class="btn sec tiny" id="btn-save-token">保存到内存</button>
+      <button class="btn sec tiny" id="btn-unlock" style="display:none;">🔓 解锁</button>
+      <button class="btn sec tiny" id="btn-encrypt" style="display:none;">🔒 用密码加密</button>
+      <button class="btn sec tiny" id="btn-clear-token" style="display:none;">清除</button>
+      <span class="hint" id="token-status"></span>
     </div>
-
-    <div class="row">
-      <div>
-        <label>日期</label>
-        <input type="date" id="date">
-      </div>
-      <div>
-        <label>题目数</label>
-        <input type="number" id="total" value="13" min="1" max="26">
-      </div>
-      <div>
-        <label>通过数 <span class="hint">（自动算：O + Ø）</span></label>
-        <input type="number" id="solved" value="0" min="0" readonly style="opacity:0.6">
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <label>题目状态 <span class="hint">（点格子循环：未做 → O → Ø → ! → 未做）</span></label>
-
-    <div class="cycle-hint">
-      <span class="cycle-step">· 未做</span>
-      <span class="cycle-arrow">→</span>
-      <span class="cycle-step" style="color: var(--c-O); font-weight: bold;">O 赛时过题</span>
-      <span class="cycle-arrow">→</span>
-      <span class="cycle-step" style="color: var(--c-fix); font-weight: bold;">Ø 补过</span>
-      <span class="cycle-arrow">→</span>
-      <span class="cycle-step" style="color: var(--c-try); font-weight: bold;">! 尝试没过</span>
-      <span class="cycle-arrow">→</span>
-      <span class="cycle-step">· 未做</span>
-    </div>
-
-    <div class="cells" id="cells"></div>
-
-    <div style="display:flex;gap:0.5em;margin-top:1em;flex-wrap:wrap;">
-      <button class="btn tiny sec" id="fill-rest-o">剩余全标 O</button>
-      <button class="btn tiny sec" id="clear-all">全部清除</button>
-    </div>
-
-    <div class="stat-grid">
-      <div class="stat-cell">
-        <div class="stat-label">赛时过题 + 补题</div>
-        <div class="stat-value" id="stat-total">0</div>
-      </div>
-      <div class="stat-cell">
-        <div class="stat-label">赛时过题</div>
-        <div class="stat-value" id="stat-contest">0</div>
-      </div>
-      <div class="stat-cell">
-        <div class="stat-label">总题数</div>
-        <div class="stat-value" id="stat-problems">0</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="row">
-      <div>
-        <label>比赛链接 <span class="hint">（选填）</span></label>
-        <input type="text" id="link" placeholder="https://codeforces.com/gym/...">
-      </div>
-      <div>
-        <label>标签 <span class="hint">（选填）</span></label>
-        <input type="text" id="tags" placeholder="#icpc #regional #2024">
-      </div>
-    </div>
-  </div>
-
-  <h2>💾 保存修改</h2>
-  <div class="card save-panel">
-    <div class="nav-tip" id="save-mode-hint"></div>
-
-    <div id="save-diff" style="display:none;">
-      <label>原行（来自 <code>contests.csv</code>）</label>
-      <div class="preview diff-old" id="diff-old"></div>
-      <label style="margin-top: 0.8em;">新行（你的修改）</label>
-      <div class="preview diff-new" id="diff-new"></div>
-    </div>
-
-    <div style="margin-top: 0.8em;">
-      <label>新 CSV 行</label>
-      <div class="preview" id="preview-csv"></div>
-    </div>
-
-    <div class="save-actions">
-      <button class="btn primary" id="btn-save-github">💾 保存到 GitHub</button>
-    </div>
-
-    <details class="token-config" id="token-config">
-      <summary>⚙ GitHub Token 配置</summary>
-      <p class="hint" style="margin-top: 0.5em;">
-        ① 打开 <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">GitHub PAT 设置</a>
-        ② New fine-grained token，仓库只勾 <code>tarjen/tarjen-wiki</code>，权限只勾 <strong>Contents: Read and write</strong>
-        ③ 复制 token 粘到下面
-      </p>
-      <input type="password" id="gh-token" placeholder="github_pat_xxx..." autocomplete="off">
-      <div class="row" style="display: flex; gap: 0.5em; align-items: center;">
-        <button class="btn sec tiny" id="btn-save-token">保存 Token</button>
-        <button class="btn sec tiny" id="btn-clear-token" style="display:none;">清除</button>
-        <span class="hint" id="token-status"></span>
-      </div>
-    </details>
-  </div>
+    <p class="hint" id="gh-status-banner" style="margin-top: 0.6em;"></p>
+  </details>
 
   <div class="toast" id="toast"></div>
 
   <script>
+  // ================================================================
+  // Router: ?view=table (默认) 或 ?view=md；?slug=xxx
+  // 两个 view 共享 #token-config 和 #toast，wireTokenUI / wireBeforeUnload
+  // 只会被调用一次（来自当前激活 view 的 init 函数）。
+  // ================================================================
   document.addEventListener('DOMContentLoaded', function () {
     var W = window.Wiki;
     var $ = function (id) { return document.getElementById(id); };
-    // 状态：'.' (未做) / 'O' (赛时过题) / 'Ø' (赛后补过) / '!' (尝试没过)
+
+    // 旧版 v1 明文 token 自动迁移到内存；内存里就有 token 了
+    try {
+      var legacy = localStorage.getItem(W.TOKEN_KEY);
+      if (legacy && !W.getToken()) W.setToken(legacy);
+    } catch (e) {}
+
+    function getView() {
+      return new URLSearchParams(location.search).get('view') === 'md' ? 'md' : 'table';
+    }
+    function getSlug() {
+      return new URLSearchParams(location.search).get('slug') || '';
+    }
+
+    var view = getView();
+    var slug = getSlug();
+
+    // 显示当前 view，隐藏另一个
+    $('view-table').hidden = (view !== 'table');
+    $('view-md').hidden = (view !== 'md');
+
+    // 标题 + 顶部跨视图切换按钮
+    var title = $('page-title');
+    var cross = $('cross-link');
+    if (view === 'md') {
+      title.textContent = '📝 编辑详情页';
+      if (slug) {
+        cross.textContent = '📊 改状态';
+        cross.href = '?view=table&slug=' + encodeURIComponent(slug);
+        cross.hidden = false;
+      } else {
+        cross.hidden = true;
+      }
+    } else {
+      title.textContent = '📝 添加比赛';
+      if (slug) {
+        cross.textContent = '📝 编辑详情';
+        cross.href = '?view=md&slug=' + encodeURIComponent(slug);
+        cross.hidden = false;
+      } else {
+        cross.hidden = true;
+      }
+    }
+
+    if (view === 'md' && !slug) {
+      $('view-md').hidden = false;
+      var b = $('md-banner');
+      b.style.display = 'block';
+      b.innerHTML = '⚠ URL 里没有 <code>?slug=xxx</code>，没法自动加载。' +
+        '从 <a href="?view=table">表格视图</a> 点 <code>📝 编辑详情</code> 进来即可。';
+      // 顶部再放个「去表格视图」按钮，确保用户找得到路
+      cross.textContent = '📊 去表格视图';
+      cross.href = '?view=table';
+      cross.hidden = false;
+      return;
+    }
+
+    if (view === 'md') initMd(slug);
+    else initTable(slug);
+  });
+
+  // ================================================================
+  // view=table — CSV row editor
+  // ================================================================
+  function initTable(urlSlug) {
+    var W = window.Wiki;
+    var $ = function (id) { return document.getElementById(id); };
+
     var CYCLE = ['.', 'O', 'Ø', '!'];
     var DISPLAY = { 'O': 'O', '.': '·', 'Ø': 'Ø', '!': '!' };
     var CLASS = { 'O': 's-O', '.': '', 'Ø': 's-fix', '!': 's-bang' };
@@ -316,7 +430,6 @@
     var cells = [];
     var existingSlugs = new Set();
     var csvRows = [];
-    var csvHeader = [];
     var editingSlug = null;
     var saving = false;
 
@@ -453,7 +566,6 @@
 
     // ---------- load existing data ----------
     function loadContestsData(payload) {
-      csvHeader = payload.header || [];
       csvRows = (payload.rows || []).map(function (r) {
         return {
           slug: r.slug || '',
@@ -470,7 +582,6 @@
     }
     function ingestLoaded() {
       existingSlugs = new Set(csvRows.map(function (r) { return r.slug; }).filter(Boolean));
-      var urlSlug = new URLSearchParams(location.search).get('slug');
       if (urlSlug) {
         if (existingSlugs.has(urlSlug)) {
           loadContestIntoForm(urlSlug);
@@ -500,6 +611,7 @@
       $('editing-name').textContent = row.name + ' (' + row.slug + ')';
       renderCells();
       updateAll();
+      snapshot();  // 拍初始快照，之后 isDirty() 跟这份对比
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     function exitEditMode() {
@@ -515,21 +627,40 @@
       cells = [];
       renderCells();
       updateAll();
+      snapshot();  // 重置 dirty 基准
     }
 
     // ---------- save ----------
+    // 初始快照：form 加载完 / 切换到新增模式时拍一份；isDirty() 跟当前对比
+    var initialSnapshot = null;
+    function snapshot() {
+      initialSnapshot = {
+        name: $('name').value,
+        slug: $('slug').value,
+        date: $('date').value,
+        total: $('total').value,
+        link: $('link').value,
+        tags: $('tags').value,
+        cells: cells.join(''),
+      };
+    }
     function isDirty() {
-      // 简单判断：name/slug/date/total/link/tags 任一非空就算 dirty
-      if (saving) return false;
-      return $('name').value.trim() || $('slug').value.trim() || $('link').value.trim() || $('tags').value.trim()
-        || cells.some(function (c) { return c !== '.'; });
+      if (saving || !initialSnapshot) return false;
+      var cur = {
+        name: $('name').value, slug: $('slug').value, date: $('date').value,
+        total: $('total').value, link: $('link').value, tags: $('tags').value,
+        cells: cells.join(''),
+      };
+      for (var k in cur) if (cur[k] !== initialSnapshot[k]) return true;
+      return false;
     }
 
     async function saveToGithub() {
       if (!W.getToken()) {
-        // 试一下输入框
-        var v = $('gh-token').value.trim();
-        if (v && v.indexOf('••') !== 0) { W.setToken(v); $('gh-token').value = '••••••••••'; }
+        // 编辑器流程下「保存到内存」按钮在 view 启动时已经处理过；这里只兜底
+        W.toast('先在「GitHub Token 配置」里保存 token', true);
+        var d = $('token-config'); if (d) { d.open = true; d.scrollIntoView(); }
+        return;
       }
       if (!W.getToken()) {
         W.toast('先在「GitHub Token 配置」里填 PAT', true);
@@ -537,7 +668,7 @@
         $('gh-token').focus();
         return;
       }
-      var btn = $('btn-save-github');
+      var btn = $('btn-save-github-table');
       var orig = btn.textContent;
       btn.disabled = true; saving = true;
       btn.textContent = '⏳ 保存中…';
@@ -582,7 +713,7 @@
       renderCells(); updateAll();
     });
 
-    $('btn-save-github').addEventListener('click', saveToGithub);
+    $('btn-save-github-table').addEventListener('click', saveToGithub);
     $('btn-exit-edit').addEventListener('click', exitEditMode);
 
     W.wireTokenUI();
@@ -594,7 +725,6 @@
       .then(loadContestsData)
       .catch(function (e) { W.toast('加载失败：' + e.message + '（需要 dev server 或 gh-pages 部署）', true); });
 
-    var urlSlug = new URLSearchParams(location.search).get('slug');
     if (urlSlug) {
       $('mode-banner').innerHTML =
         '<strong>📝 编辑模式：</strong>slug=<code>' + W.esc(urlSlug) + '</code>。' +
@@ -606,7 +736,101 @@
 
     renderCells();
     updateAll();
-  });
+    snapshot();
+  }
+
+  // ================================================================
+  // view=md — markdown detail editor
+  // ================================================================
+  function initMd(slug) {
+    var W = window.Wiki;
+    var $ = function (id) { return document.getElementById(id); };
+
+    var ta = $('md-content');
+    var preview = $('md-preview');
+    var original = '';
+    var saving = false;
+
+    function isDirty() { return ta.value !== original && !saving; }
+
+    function updatePreview() {
+      try {
+        preview.innerHTML = window.marked
+          ? window.marked.parse(ta.value)
+          : '<pre>' + W.esc(ta.value) + '</pre>';
+      } catch (e) {
+        preview.innerHTML = '<pre>' + W.esc(ta.value) + '</pre>';
+      }
+      var dirty = isDirty();
+      W.setStatus(dirty ? '● 未保存' : (original ? '✓ 未修改' : ''), dirty ? 'dirty' : 'saved');
+      $('btn-save-github-md').disabled = !dirty || saving;
+    }
+
+    async function loadFile() {
+      $('slug-name').textContent = slug;
+      $('btn-goto').href = '../contests/' + encodeURIComponent(slug) + '/?_t=' + Date.now();
+      $('btn-goto').style.display = '';
+
+      // 源：raw.githubusercontent（主源，本地 mkdocs serve / 部署后都能用，
+      // 因为 mkdocs 编译后 .md 文件不保留；只有 raw 仓库 URL 能拿到原文）
+      var sources = [
+        W.rawUrl('docs/contests/' + encodeURIComponent(slug) + '.md'),
+      ];
+      for (var i = 0; i < sources.length; i++) {
+        try {
+          var res = await fetch(sources[i], { cache: 'no-store' });
+          if (!res.ok) continue;
+          var text = await res.text();
+          ta.value = text;
+          original = text;
+          updatePreview();
+          W.setStatus('✓ 已加载', 'saved');
+          return;
+        } catch (e) { /* 试下一个源 */ }
+      }
+      ta.value = '# ' + slug + '\n\n（无法加载，请检查 slug）\n';
+      original = ta.value;
+      $('md-banner').style.display = 'block';
+      $('md-banner').innerHTML = '⚠ 没法加载 <code>' + W.esc(slug) + '.md</code>，可能 file:// 协议或 slug 错。';
+      updatePreview();
+    }
+
+    async function saveToGithub() {
+      if (!W.getToken()) {
+        W.toast('先在「GitHub Token 配置」里填 token', true);
+        var d = $('token-config'); if (d) { d.open = true; d.scrollIntoView(); }
+        return;
+      }
+      var btn = $('btn-save-github-md');
+      var orig = btn.textContent;
+      btn.disabled = true; saving = true;
+      btn.textContent = '⏳ 保存中…';
+
+      try {
+        await W.commitFile(
+          'docs/contests/' + encodeURIComponent(slug) + '.md',
+          ta.value,
+          'update(' + slug + '): via markdown editor'
+        );
+        original = ta.value;
+        W.setStatus('✅ 已保存', 'saved');
+        W.toast('✅ 已提交到 GitHub');
+        setTimeout(function () { btn.textContent = orig; saving = false; }, 1500);
+        setTimeout(function () { location.href = '../contests/' + encodeURIComponent(slug) + '/?_t=' + Date.now(); }, 4000);
+      } catch (e) {
+        W.toast('保存失败：' + e.message, true);
+        btn.textContent = orig; saving = false;
+        updatePreview();
+      }
+    }
+
+    ta.addEventListener('input', updatePreview);
+    $('btn-save-github-md').addEventListener('click', saveToGithub);
+
+    W.wireTokenUI();
+    W.wireBeforeUnload(isDirty, saveToGithub);
+    loadFile();
+  }
   </script>
 </body>
 </html>

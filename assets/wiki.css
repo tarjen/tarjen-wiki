@@ -1,6 +1,8 @@
 /* docs/assets/wiki.css
-   共享样式：被 /editor/ 和 /edit-md/ 两个页面 <link rel="stylesheet" href="../assets/wiki.css"> 引入。
-   编辑器特有的（cells、cycle-hint、stat-grid、editor-grid、pane 等）保留在各自 HTML 的 <style> 里。 */
+   共享样式：被 /editor/?view=table 和 /editor/?view=md 同一页面 <link rel="stylesheet"> 引入。
+   编辑器特有：view=table 的（cells、cycle-hint、stat-grid、save-panel、diff-*）保留在
+   docs/editor/index.html 的 <style> 里；view=md 的（editor-grid、pane、preview、toolbar）
+   在本文件末尾的「view=md」块里。 */
 
 :root {
   --bg: #fafafa;
@@ -146,3 +148,115 @@ details.token-config input[type="password"] {
   border-radius: 4px;
 }
 details.token-config .row { margin-top: 0.5em; display: flex; gap: 0.5em; align-items: center; }
+
+/* view=md: 左右双栏 markdown 编辑器 */
+.editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1em;
+  min-height: 60vh;
+}
+@media (max-width: 900px) {
+  .editor-grid { grid-template-columns: 1fr; }
+}
+.pane {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pane-header {
+  padding: 0.5em 0.8em;
+  background: var(--code-bg);
+  font-size: 0.85em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+}
+.pane textarea {
+  flex: 1;
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: vertical;
+  padding: 1em;
+  font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--card-bg);
+  color: var(--fg);
+  min-height: 50vh;
+}
+.pane .preview {
+  flex: 1;
+  padding: 1em 1.2em;
+  overflow-y: auto;
+  font-size: 0.95em;
+  background: var(--card-bg);
+  color: var(--fg);
+  max-height: none;        /* 覆盖 .preview 的 max-height:200px */
+  word-break: normal;
+  white-space: normal;
+  border: none;
+}
+.pane .preview h1, .pane .preview h2, .pane .preview h3, .pane .preview h4 {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3em;
+}
+.pane .preview h1 { font-size: 1.6em; }
+.pane .preview h2 { font-size: 1.3em; }
+.pane .preview h3 { font-size: 1.1em; }
+.pane .preview code { font-size: 0.85em; }
+.pane .preview pre {
+  background: var(--code-bg);
+  padding: 0.8em 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+.pane .preview blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1em;
+  color: var(--muted);
+  margin-left: 0;
+}
+.pane .preview table { border-collapse: collapse; margin: 0.5em 0; }
+.pane .preview table th, .pane .preview table td {
+  border: 1px solid var(--border);
+  padding: 0.4em 0.8em;
+}
+.pane .preview a { color: var(--accent); }
+.pane .preview ul, .pane .preview ol { padding-left: 1.5em; }
+
+.toolbar {
+  display: flex;
+  gap: 0.5em;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 1em 0;
+  padding: 0.6em 0.8em;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+.toolbar .slug {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85em;
+  color: var(--muted);
+  margin-right: auto;
+}
+.toolbar .slug strong { color: var(--fg); }
+
+/* 顶部 page-header：title + cross-link 切换按钮 */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  flex-wrap: wrap;
+  margin-bottom: 0.3em;
+}
+.page-header h1 { margin: 0; }
+.page-header .cross-link { margin-left: auto; }
