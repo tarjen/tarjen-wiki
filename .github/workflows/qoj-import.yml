@@ -1,0 +1,54 @@
+name: QOJ import
+
+# 通过浏览器「📥 从 QOJ 导入」按钮触发：editor → GitHub API → 这里 → tools/qoj_sync.py → 提交 cache 回 main
+# 浏览器轮询 raw.githubusercontent.com 看到新数据后弹"导入预览"
+on:
+  workflow_dispatch:
+    inputs:
+      contest_id:
+        description: 'QOJ contest id (e.g. 2564)'
+        required: true
+      username:
+        description: 'QOJ username (e.g. tarjen)'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qoj-import
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install qoj sync deps
+        # curl_cffi 用真实 Chrome TLS 指纹绕 Cloudflare；不装浏览器，省 150MB
+        run: pip install curl_cffi
+
+      - name: Run QOJ sync
+        env:
+          CONTEST_ID: ${{ inputs.contest_id }}
+          USERNAME: ${{ inputs.username }}
+        run: python3 tools/qoj_sync.py "$CONTEST_ID" "$USERNAME"
+
+      - name: Commit cache back to main
+        run: |
+          git config user.name "qoj-sync-bot"
+          git config user.email "qoj-sync-bot@users.noreply.github.com"
+          git add docs/data/qoj-cache.json
+          # 没有变化时 git diff --staged --quiet 返回 0，跳过 commit
+          if ! git diff --staged --quiet; then
+            git commit -m "qoj: import contest ${{ inputs.contest_id }} for ${{ inputs.username }}"
+            git push
+          fi

@@ -251,36 +251,59 @@
     if (btnUnl) btnUnl.addEventListener('click', function () {
       var p = (pwd && pwd.value || '').trim();
       if (!p) { toast('先输入密码', true); return; }
+      if (p.length < 6) { toast('密码至少 6 位', true); return; }
       btnUnl.disabled = true;
+      var orig = btnUnl.textContent;
+      btnUnl.textContent = '⏳ 解锁中…';
       unlockToken(p).then(function () {
         if (pwd) pwd.value = '';
         refresh();
         toast('🔓 已解锁');
       }).catch(function (e) {
         toast('解锁失败：' + e.message, true);
-      }).then(function () { btnUnl.disabled = false; });
+      }).then(function () {
+        btnUnl.disabled = false;
+        btnUnl.textContent = orig;
+      });
     });
 
     if (btnEnc) btnEnc.addEventListener('click', function () {
       var p = (pwd && pwd.value || '').trim();
+      if (!_plain) { toast('先粘 token 再加密', true); return; }
       if (!p) { toast('先在密码框里输入一个密码（要记牢！丢了就解不开）', true); return; }
       if (p.length < 6) { toast('密码至少 6 位', true); return; }
+      // 已经加密过的话，第二次加密会覆盖旧 blob（salt/iv 都换）——旧密码立即失效
+      if (hasEncryptedToken()) {
+        if (!confirm('已经有一个加密的 token，要覆盖吗？\n旧密码会立即失效，丢了就找不回来。')) return;
+      }
       btnEnc.disabled = true;
+      var orig = btnEnc.textContent;
+      btnEnc.textContent = '⏳ 加密中…';
       encryptCurrentToken(p).then(function () {
         if (pwd) pwd.value = '';
         refresh();
         toast('🔒 已用密码加密保存到 localStorage');
       }).catch(function (e) {
-        toast('加密失败：' + e.message, true);
-      }).then(function () { btnEnc.disabled = false; });
+        // 常见原因：Safari 隐私模式 / storage 被禁
+        if (e && (e.name === 'QuotaExceededError' || e.name === 'SecurityError')) {
+          toast('localStorage 不可用（Safari 隐私模式？），token 只能留在内存里', true);
+        } else {
+          toast('加密失败：' + e.message, true);
+        }
+      }).then(function () {
+        btnEnc.disabled = false;
+        btnEnc.textContent = orig;
+      });
     });
 
     // Enter 键在密码框里直接触发解锁 / 加密
     if (pwd) pwd.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') {
         e.preventDefault();
+        // S0（什么都没）的情况下不响应——用户得先点保存到内存把 token 加载进来
+        if (!_plain && !hasEncryptedToken()) return;
         if (hasEncryptedToken() && !_plain && btnUnl) btnUnl.click();
-        else if (btnEnc) btnEnc.click();
+        else if (_plain && btnEnc) btnEnc.click();
       }
     });
 
@@ -303,6 +326,34 @@
     });
   }
 
+  // ---- 触发 GitHub Actions workflow（用于「📥 从 QOJ 导入」等场景）----
+  // 调 POST /repos/{owner}/{repo}/actions/workflows/{file}/dispatches
+  // 需要 token 有 Workflows: write 权限；fine-grained PAT 需明确勾上
+  // 返回 204 即视为成功；workflow 异步跑，本函数不等待结果
+  async function triggerWorkflow(workflowFile, inputs, ref) {
+    if (!getToken()) throw new Error('No PAT configured');
+    var h = apiHeaders();
+    h['Content-Type'] = 'application/json';
+    var res = await fetch(
+      API_BASE + '/repos/' + REPO.owner + '/' + REPO.repo +
+      '/actions/workflows/' + encodeURIComponent(workflowFile) + '/dispatches',
+      {
+        method: 'POST',
+        headers: h,
+        body: JSON.stringify({
+          ref: ref || REPO.branch,
+          inputs: inputs || {},
+        }),
+      }
+    );
+    if (res.status === 204) return true;
+    var err = {};
+    try { err = await res.json(); } catch (e) {}
+    if (res.status === 401) throw new Error('Token 无权触发 workflow（需要 Workflows: write 权限）');
+    if (res.status === 404) throw new Error('找不到 workflow 文件：' + workflowFile);
+    throw new Error(err.message || ('HTTP ' + res.status));
+  }
+
   // ---- 暴露 ----
   window.Wiki = {
     REPO: REPO, TOKEN_KEY: TOKEN_KEY, TOKEN_KEY_ENC: TOKEN_KEY_ENC,
@@ -311,7 +362,7 @@
     encryptToken: encryptToken, decryptToken: decryptToken,
     unlockToken: unlockToken, encryptCurrentToken: encryptCurrentToken,
     apiUrl: apiUrl, rawUrl: rawUrl, apiHeaders: apiHeaders,
-    commitFile: commitFile,
+    commitFile: commitFile, triggerWorkflow: triggerWorkflow,
     esc: esc, toast: toast, setStatus: setStatus,
     wireTokenUI: wireTokenUI, wireBeforeUnload: wireBeforeUnload,
   };

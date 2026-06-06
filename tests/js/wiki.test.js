@@ -582,3 +582,97 @@ test('wireBeforeUnload: plain "s" key does NOT trigger save', () => {
   docListeners.keydown(e);
   assert.equal(saveCalled, 0);
 });
+
+// ---- triggerWorkflow（QOJ 导入用）----
+
+test('triggerWorkflow: 204 success → returns true and POSTs correct URL + body', async () => {
+  const calls = [];
+  const fakeFetch = async (url, opts = {}) => {
+    calls.push({ url, method: opts.method || 'GET', body: opts.body, headers: opts.headers });
+    return { ok: true, status: 204, json: async () => ({}) };
+  };
+  const { Wiki } = loadWiki({ token: 'ghp_t', fetchImpl: fakeFetch });
+  const ok = await Wiki.triggerWorkflow('qoj-import.yml', {
+    contest_id: '2564', username: 'tarjen',
+  });
+  assert.equal(ok, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.equal(
+    calls[0].url,
+    'https://api.github.com/repos/tarjen/tarjen-wiki/actions/workflows/qoj-import.yml/dispatches'
+  );
+  const body = JSON.parse(calls[0].body);
+  assert.equal(body.ref, 'main');
+  assert.deepEqual(body.inputs, { contest_id: '2564', username: 'tarjen' });
+  assert.match(calls[0].headers.Authorization, /^Bearer ghp_t$/);
+  assert.equal(calls[0].headers['Content-Type'], 'application/json');
+});
+
+test('triggerWorkflow: 401 → friendly "Workflows: write" error', async () => {
+  const fakeFetch = async () => ({
+    ok: false, status: 401, json: async () => ({ message: 'Bad credentials' }),
+  });
+  const { Wiki } = loadWiki({ token: 'ghp_bad', fetchImpl: fakeFetch });
+  await assert.rejects(
+    Wiki.triggerWorkflow('qoj-import.yml', { contest_id: '1', username: 'u' }),
+    /Workflows: write 权限/
+  );
+});
+
+test('triggerWorkflow: 404 → friendly "找不到 workflow 文件" error', async () => {
+  const fakeFetch = async () => ({
+    ok: false, status: 404, json: async () => ({ message: 'Not Found' }),
+  });
+  const { Wiki } = loadWiki({ token: 't', fetchImpl: fakeFetch });
+  await assert.rejects(
+    Wiki.triggerWorkflow('missing.yml', {}),
+    /找不到 workflow 文件.*missing\.yml/
+  );
+});
+
+test('triggerWorkflow: 403 "ref locked" or similar propagates message', async () => {
+  const fakeFetch = async () => ({
+    ok: false, status: 403,
+    json: async () => ({ message: 'Workflow does not have trigger:workflow_dispatch' }),
+  });
+  const { Wiki } = loadWiki({ token: 't', fetchImpl: fakeFetch });
+  await assert.rejects(
+    Wiki.triggerWorkflow('qoj-import.yml', { contest_id: '1', username: 'u' }),
+    /trigger:workflow_dispatch/
+  );
+});
+
+test('triggerWorkflow: without token → throws "No PAT configured"', async () => {
+  const { Wiki } = loadWiki();
+  await assert.rejects(
+    Wiki.triggerWorkflow('qoj-import.yml', { contest_id: '1', username: 'u' }),
+    /No PAT configured/
+  );
+});
+
+test('triggerWorkflow: workflow file with path separator is URI-encoded in URL', async () => {
+  // 防 path traversal: file path 里出现 ../ 之类的，不应出现在 URL 路径里
+  const calls = [];
+  const fakeFetch = async (url, opts = {}) => {
+    calls.push({ url });
+    return { ok: true, status: 204, json: async () => ({}) };
+  };
+  const { Wiki } = loadWiki({ token: 't', fetchImpl: fakeFetch });
+  await Wiki.triggerWorkflow('qoj-import.yml', { contest_id: '1', username: 'u' });
+  assert.ok(calls[0].url.includes('/actions/workflows/qoj-import.yml/dispatches'),
+    'URL path must be well-formed');
+  assert.ok(!calls[0].url.includes('..'), 'no path traversal');
+});
+
+test('triggerWorkflow: defaults ref to REPO.branch (main) when not specified', async () => {
+  const calls = [];
+  const fakeFetch = async (url, opts = {}) => {
+    calls.push({ body: opts.body });
+    return { ok: true, status: 204, json: async () => ({}) };
+  };
+  const { Wiki } = loadWiki({ token: 't', fetchImpl: fakeFetch });
+  await Wiki.triggerWorkflow('qoj-import.yml', { contest_id: '1', username: 'u' });
+  const body = JSON.parse(calls[0].body);
+  assert.equal(body.ref, 'main');
+});

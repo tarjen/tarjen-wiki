@@ -1,0 +1,303 @@
+#!/usr/bin/env python3
+"""tools/qoj_sync.py — 从 qoj.ac 抓取指定比赛和指定用户的做题情况
+
+写 docs/data/qoj-cache.json：保持已有 contest 条目不变，更新/追加当前 contest。
+CI 提交后 main 触发 deploy；浏览器下次加载编辑器时轮询到这个文件的新条目。
+
+运行：
+    python3 tools/qoj_sync.py 2564 tarjen
+    # 或
+    CONTEST_ID=2564 USERNAME=tarjen python3 tools/qoj_sync.py
+    # 只看 JSON，不写文件：
+    python3 tools/qoj_sync.py 2564 tarjen --dry-run
+"""
+import argparse
+import json
+import os
+import re
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+CONTEST_LIST_URL = "https://qoj.ac/contests"
+CONTEST_PAGE_URL = "https://qoj.ac/contest/{cid}"
+SUBMISSIONS_URL = "https://qoj.ac/submissions"
+CACHE_PATH = Path("docs/data/qoj-cache.json")
+
+# 延迟导入：tests 用 mock，单元测试不希望强制装 curl_cffi
+def _get_session():
+    from curl_cffi import requests as cc_requests
+    return cc_requests.Session(impersonate="chrome120")
+
+# UOJ 在 <a class="small">RESULT_ERROR</a> 里写的原文
+# Source: judger/uoj_judger/include/uoj_run.h:169-189
+STATUS_TO_CODE = {
+    "Accepted": "AC",
+    "Wrong Answer": "WA",
+    "Runtime Error": "RE",
+    "Time Limit Exceeded": "TLE",
+    "Memory Limit Exceeded": "MLE",
+    "Output Limit Exceeded": "OLE",
+    "Compile Error": "CE",
+    "Judgment Failed": "SE",
+    "Dangerous Syscalls": "DGS",
+    "Unknown Result": "??",
+}
+
+
+# ---------------- HTTP helpers ----------------
+
+def _check_cf(html, url):
+    """检测 Cloudflare 挑战页：脚本被拦了要让用户看到清晰错误，不是拿到 HTML 还假装成功。"""
+    if "cf-mitigated" in html or "Just a moment..." in html or "cf_chl_opt" in html:
+        raise RuntimeError(
+            f"qoj.ac Cloudflare 拦截了 {url}。curl_cffi 的 chrome120 指纹可能不够新；"
+            "试试 impersonate='chrome131' 或其他版本。"
+        )
+
+
+def fetch_contest_meta(session, contest_id):
+    """从 contests 列表页找 (start_time, duration_hours)。
+
+    列表页一行（实测）：
+    <a href="/contest/2564" ...>Name</a>
+    <a href="https://www.timeanddate.com/worldclock/.../?iso=20251130T0930" target="_blank">2025-11-30 09:30</a>
+    <td>5</td>   ← 持续小时
+    """
+    resp = session.get(CONTEST_LIST_URL)
+    resp.raise_for_status()
+    html = resp.text
+    _check_cf(html, CONTEST_LIST_URL)
+    # 找 contest_id 那一行：name + timeanddate href + duration <td>
+    pattern = (
+        r'href="/contest/' + re.escape(contest_id) + r'"[^>]*>([^<]+)</a>'
+        r'.*?'
+        r'iso=(\d{8})T(\d{4})'
+        r'.*?'
+        r'<td[^>]*>(\d+)</td>'
+    )
+    m = re.search(pattern, html, re.DOTALL)
+    if not m:
+        return None, None
+    name = m.group(1).strip()
+    iso_date, iso_time = m.group(2), m.group(3)
+    try:
+        start_time = datetime.strptime(iso_date + iso_time, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return name, None
+    duration_hours = int(m.group(4))
+    return start_time, duration_hours
+
+
+def fetch_contest_page(session, contest_id):
+    """拿比赛名（h1）和题目列表（dashboard 第一个 table）。
+
+    题目行：
+    <td>A</td>
+    <td><a href="/contest/{cid}/problem/{pid}">#{pid}. Title</a></td>
+    """
+    resp = session.get(CONTEST_PAGE_URL.format(cid=contest_id))
+    resp.raise_for_status()
+    html = resp.text
+    _check_cf(html, CONTEST_PAGE_URL.format(cid=contest_id))
+    name_m = re.search(r'<h1[^>]*>([^<]+)</h1>', html)
+    name = name_m.group(1).strip() if name_m else f"Contest {contest_id}"
+    problems = []
+    for m in re.finditer(
+        r'<a\s+href="/contest/' + re.escape(contest_id) + r'/problem/(\d+)"\s*>([^<]+)</a>',
+        html,
+    ):
+        pid = int(m.group(1))
+        title = m.group(2).strip()
+        letter = chr(ord('A') + len(problems))
+        problems.append({"id": pid, "letter": letter, "title": title})
+    return name, problems
+
+
+def fetch_user_submissions_for_problem(session, username, problem_id):
+    """拉指定 user+problem 的全部 submissions（分页）。
+
+    返回 [(status_code, "YYYY-MM-DD HH:MM:SS"), ...]，按 QOJ 默认顺序（最新在前）。
+    状态判定：
+    - <a class="uoj-score">N</a> → 数字得分；100 = AC，其它记 S{N}
+    - <a class="small">TEXT</a> → 状态文字，映射到 STATUS_TO_CODE
+    """
+    out = []
+    page = 1
+    while True:
+        resp = session.get(SUBMISSIONS_URL, params={
+            "submitter": username,
+            "problem_id": problem_id,
+            "page": page,
+        })
+        resp.raise_for_status()
+        html = resp.text
+        _check_cf(html, SUBMISSIONS_URL)
+        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
+        body_rows = [r for r in rows if '<th' not in r]
+        if not body_rows:
+            break
+        page_has_data = False
+        for row in body_rows:
+            cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
+            if len(cells) < 9:
+                continue
+            result_html = cells[3]
+            time_html = cells[8]
+            score_m = re.search(r'<a class="uoj-score">(\d+)</a>', result_html)
+            small_m = re.search(r'<a class="small">([^<]+)</a>', result_html)
+            if score_m:
+                score = int(score_m.group(1))
+                status = "AC" if score == 100 else f"S{score}"
+            elif small_m:
+                raw = small_m.group(1).strip()
+                status = STATUS_TO_CODE.get(raw, "??")
+            else:
+                continue
+            time_m = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', time_html)
+            t = time_m.group(1) if time_m else ""
+            out.append((status, t))
+            page_has_data = True
+        if not page_has_data or len(body_rows) < 10:
+            break
+        page += 1
+        if page > 50:
+            print(f"[!] problem_id={problem_id} 翻了 50 页，截断", file=sys.stderr)
+            break
+    return out
+
+
+# ---------------- pure logic ----------------
+
+def best_status(subs):
+    """从一组 (status, time) 里挑最优。返回 ("AC", earliest_ac_time) 或 (first_error, "") 或 None。"""
+    if not subs:
+        return None
+    acs = [t for s, t in subs if s == "AC"]
+    if acs:
+        # 最早 AC 用于判断"赛中过题"；QOJ 列表是新的在前，所以 min 是最早
+        return ("AC", min(acs))
+    return (subs[0][0], "")
+
+
+def is_during_contest(ac_time_str, start_time, duration_hours):
+    """判断 ac_time_str 是否在 [start_time, start_time + duration_hours] 区间内。
+
+    QOJ 不带时区后缀，服务器时间看起来是 UTC（timeanddate.com 也用 UTC ISO），
+    所以两端都按 UTC 处理。
+    """
+    if not ac_time_str or start_time is None or not duration_hours:
+        return False
+    try:
+        ac_time = datetime.strptime(ac_time_str, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return False
+    start_ts = start_time.timestamp()
+    end_ts = start_ts + int(duration_hours) * 3600
+    ac_ts = ac_time.replace(tzinfo=timezone.utc).timestamp()
+    return start_ts <= ac_ts <= end_ts
+
+
+# ---------------- cache I/O ----------------
+
+def load_cache(path=CACHE_PATH):
+    if isinstance(path, str):
+        path = Path(path)
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {"version": 1, "updated_at": "", "contests": {}}
+
+
+def save_cache(cache, path=CACHE_PATH):
+    if isinstance(path, str):
+        path = Path(path)
+    cache["version"] = cache.get("version", 1)
+    cache["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    cache.setdefault("contests", {})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(cache, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+# ---------------- main ----------------
+
+def main():
+    parser = argparse.ArgumentParser(description="QOJ 比赛/用户数据抓取 → docs/data/qoj-cache.json")
+    parser.add_argument("contest_id", nargs="?", help="QOJ contest id (e.g. 2564)")
+    parser.add_argument("username", nargs="?", help="QOJ username (e.g. tarjen)")
+    parser.add_argument("--dry-run", action="store_true", help="只打印抓到的 JSON，不写文件")
+    parser.add_argument("--no-subs", action="store_true", help="只抓比赛元信息，不抓 submissions")
+    args = parser.parse_args()
+
+    contest_id = (args.contest_id or os.environ.get("CONTEST_ID", "")).strip()
+    username = (args.username or os.environ.get("USERNAME", "")).strip()
+    if not contest_id or not username:
+        print("用法: python3 tools/qoj_sync.py <contest_id> <username>", file=sys.stderr)
+        print("     或 CONTEST_ID=... USERNAME=... python3 tools/qoj_sync.py", file=sys.stderr)
+        sys.exit(2)
+
+    print(f"[*] 抓取 contest={contest_id} user={username}", file=sys.stderr)
+    session = _get_session()
+    session.headers["User-Agent"] = "tarjen-wiki-qoj-sync/1.0"
+
+    # 1) 比赛元信息（start_time + duration → 用来判断"赛中 AC"）
+    print(f"[*] 拉 {CONTEST_LIST_URL}", file=sys.stderr)
+    start_time, duration_hours = fetch_contest_meta(session, contest_id)
+    if start_time is None:
+        print(f"[!] 列表页没找到 contest {contest_id}（CF 拦截？或 id 错？）", file=sys.stderr)
+        # 不退出：name 和 problems 还能从单比赛页拿
+    else:
+        print(f"    start={start_time.isoformat()}  duration={duration_hours}h", file=sys.stderr)
+
+    # 2) 比赛名 + 题目
+    url = CONTEST_PAGE_URL.format(cid=contest_id)
+    print(f"[*] 拉 {url}", file=sys.stderr)
+    name, problems = fetch_contest_page(session, contest_id)
+    print(f"    name={name!r}  problems={len(problems)}", file=sys.stderr)
+    if not problems:
+        print(f"[!] 比赛 {contest_id} 一道题都没拿到", file=sys.stderr)
+        sys.exit(1)
+
+    entry = {
+        "name": name,
+        "start_time": start_time.isoformat() if start_time else "",
+        "duration_hours": int(duration_hours) if duration_hours else 0,
+        "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "problems": problems,
+        "submissions": {},
+    }
+
+    # 3) 用户每题状态
+    if not args.no_subs:
+        entry["submissions"][username] = {}
+        for p in problems:
+            print(f"[*] 拉 submissions problem_id={p['id']} ({p['letter']})", file=sys.stderr)
+            subs = fetch_user_submissions_for_problem(session, username, p["id"])
+            if not subs:
+                continue
+            status, ac_at = best_status(subs)
+            in_contest = is_during_contest(ac_at, start_time, duration_hours) if status == "AC" else False
+            entry["submissions"][username][str(p["id"])] = {
+                "status": status,
+                "ac_at": ac_at,
+                "in_contest": in_contest,
+                "tried": True,
+            }
+
+    # 4) 写 cache
+    if args.dry_run:
+        print(json.dumps(entry, ensure_ascii=False, indent=2))
+        return
+    cache = load_cache()
+    cache["contests"][contest_id] = entry
+    save_cache(cache)
+    print(f"[✓] 写入 {CACHE_PATH}（contest {contest_id}，user {username}）", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

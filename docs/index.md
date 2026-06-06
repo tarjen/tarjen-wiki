@@ -61,6 +61,21 @@
 「题数」列里的 `9/9/14` 含义：**赛时+补题=9**，**赛时过题=9**，**总题数=14**。
 底部三段统计卡也会同步：赛时+补题 / 赛时过题 / 总题数。
 
+### 从 QOJ 一键导入
+
+打开 [editor/?view=table](editor/?view=table)，滚到「📥 从 QOJ 导入」卡片：
+
+1. 粘 QOJ 比赛链接（如 `https://qoj.ac/contest/2564` 或只填 `2564`）
+2. 填 QOJ 用户名（如 `tarjen`）
+3. 点「📥 导入」—— 浏览器**一按就走 GitHub Actions** 在服务端跑 `tools/qoj_sync.py`，绕 Cloudflare
+4. 等几秒到 2 分钟（取决于 QOJ 题目数和提交数），出现「✅ 抓到了，13 题」预览
+5. 看一眼映射：AC + 赛中 → `O`，AC + 赛后 → `Ø`，WA/TLE/RE → `!`，没提交 → `.`
+6. 点「✅ 填入表单」→ 编辑器填好 → 自己再点格子微调 → 「💾 保存到 GitHub」
+
+**前置条件**：GitHub PAT 多勾一个 **Workflows: Read and write** 权限（生成页面在 `Workflows` 那一栏）。只有触发的权限要这个，「保存到 GitHub」用的是 Contents:write。
+
+**怎么知道 import 跑成功没**：点完「📥 导入」可以关页面；下次打开编辑器时数据已经在 cache 里了。
+
 ### 直接改仓库
 
 适合想用本地编辑器/脚本批量改、或习惯 git 工作流的人：
