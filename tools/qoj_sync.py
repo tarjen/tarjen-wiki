@@ -99,31 +99,34 @@ class _PlaywrightSession:
             print("[!] 未提供 QOJ_AUTH_COOKIE，按匿名访问（比赛页可能 302 → /login）", file=sys.stderr)
         self._page = self._context.new_page()
 
-    def get(self, url, params=None):
+    def get(self, url, params=None, _retries=2):
         full = url
         if params:
             full = url + ('&' if '?' in url else '?') + urlencode(params)
         # domcontentloaded 比 load 快；CF challenge 也会触发 load 事件但内容是空壳
-        self._page.goto(full, wait_until="domcontentloaded", timeout=30000)
-        # CF v5 JS challenge：title "Just a moment..." 或 URL 含 /challenge
-        # Python 端轮询 page.title() —— 比 wait_for_function 可靠（CDP eval 偶尔丢）
         import time
-        deadline = time.time() + 60
-        cf_started = time.time()
-        while time.time() < deadline:
-            try:
-                title = self._page.title().lower()
-                cur_url = self._page.url
-            except Exception:
+        for attempt in range(_retries + 1):
+            self._page.goto(full, wait_until="domcontentloaded", timeout=30000)
+            # CF v5 JS challenge：title "Just a moment..." 或 URL 含 /challenge
+            # Python 端轮询 page.title() —— 比 wait_for_function 可靠（CDP eval 偶尔丢）
+            deadline = time.time() + 60
+            while time.time() < deadline:
+                try:
+                    title = self._page.title().lower()
+                except Exception:
+                    time.sleep(1)
+                    continue
+                if "just a moment" not in title and "checking your browser" not in title:
+                    return _Response(self._page.content())
                 time.sleep(1)
+            # 60s 还在 CF 挑战页：reload 一次（cf_clearance 可能刚签发，刷新页面会带过去）
+            if attempt < _retries:
+                print(f"[!] CF 60s 没解开，reload 重试 ({attempt + 1}/{_retries})...", file=sys.stderr)
+                time.sleep(2)
                 continue
-            if "just a moment" not in title and "checking your browser" not in title:
-                break
-            time.sleep(1)
-        else:
-            # 60s 还没解开，截屏 + dump HTML 方便 debug
+            # 实在不行：截屏 + dump HTML 方便 debug
             self._dump_debug(full, reason="cf_timeout_60s")
-        return _Response(self._page.content())
+            return _Response(self._page.content())
 
     def _dump_debug(self, url, reason=""):
         """CF 60s 没解开时，把截图 + HTML 写到 docs/data/，workflow 会传 artifact。"""
