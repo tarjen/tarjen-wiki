@@ -4,6 +4,9 @@
 写 docs/data/qoj-cache.json：保持已有 contest 条目不变，更新/追加当前 contest。
 CI 提交后 main 触发 deploy；浏览器下次加载编辑器时轮询到这个文件的新条目。
 
+CF 拦截：qoj.ac 走 Cloudflare v5 managed JS challenge。curl_cffi 这种"指纹+TLS 伪造"被 403。
+用 Playwright 真 Chromium 跑 JS 验证 → CF 当正常浏览器放行。
+
 运行：
     python3 tools/qoj_sync.py 2564 tarjen
     # 或
@@ -18,16 +21,72 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlencode
 
 CONTEST_LIST_URL = "https://qoj.ac/contests"
 CONTEST_PAGE_URL = "https://qoj.ac/contest/{cid}"
 SUBMISSIONS_URL = "https://qoj.ac/submissions"
 CACHE_PATH = Path("docs/data/qoj-cache.json")
 
-# 延迟导入：tests 用 mock，单元测试不希望强制装 curl_cffi
-def _get_session():
-    from curl_cffi import requests as cc_requests
-    return cc_requests.Session(impersonate="chrome120")
+
+# ---------------- Session abstraction ----------------
+# 真实运行时：Playwright 真浏览器
+# 单元测试时：FakeSession（看 tests/test_qoj_sync.py）
+# 两个都实现同一个接口：.get(url, params=None) → response-like（有 .text, .raise_for_status()）
+
+class _Response:
+    def __init__(self, text, status=200):
+        self.text = text
+        self.status_code = status
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+
+class _PlaywrightSession:
+    """headless Chromium 一次启动，跨多次 get 复用。闭包管理生命周期。"""
+
+    def __init__(self):
+        from playwright.sync_api import sync_playwright
+        self._p = sync_playwright().start()
+        self._browser = self._p.chromium.launch(headless=True)
+        self._context = self._browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+        )
+        self._page = self._context.new_page()
+
+    def get(self, url, params=None):
+        full = url
+        if params:
+            full = url + ('&' if '?' in url else '?') + urlencode(params)
+        self._page.goto(full, wait_until="domcontentloaded", timeout=30000)
+        # CF JS 挑战：title 含 "Just a moment" 时等 networkidle（JS 跑完 CF 验证）
+        # 实测 5–10s 解决；给 30s 余量
+        if "Just a moment" in self._page.title():
+            self._page.wait_for_load_state("networkidle", timeout=30000)
+        return _Response(self._page.content())
+
+    def close(self):
+        try:
+            self._context.close()
+            self._browser.close()
+        finally:
+            self._p.stop()
+
+
+def _open_session():
+    """打开一个 fetcher session。失败抛 RuntimeError 让 CI 重试更明显。"""
+    try:
+        return _PlaywrightSession()
+    except ImportError as e:
+        raise RuntimeError(
+            "缺少 playwright 依赖。CI workflow 应该 pip install playwright + playwright install chromium。"
+        ) from e
+
 
 # UOJ 在 <a class="small">RESULT_ERROR</a> 里写的原文
 # Source: judger/uoj_judger/include/uoj_run.h:169-189
@@ -48,11 +107,13 @@ STATUS_TO_CODE = {
 # ---------------- HTTP helpers ----------------
 
 def _check_cf(html, url):
-    """检测 Cloudflare 挑战页：脚本被拦了要让用户看到清晰错误，不是拿到 HTML 还假装成功。"""
-    if "cf-mitigated" in html or "Just a moment..." in html or "cf_chl_opt" in html:
+    """检测 Cloudflare 挑战页：如果 Playwright 拿到的是 CF 验证页（没解开），让用户看到清晰错误。"""
+    # CF "Just a moment..." 标题在 _PlaywrightSession 已经等 networkidle 解决了
+    # 但如果 <title> 还在 / 或页面 body 还是 cf-mitigated 标记，说明 30s 没解完
+    if "Just a moment..." in html or "cf-mitigated" in html or "cf_chl_opt" in html:
         raise RuntimeError(
-            f"qoj.ac Cloudflare 拦截了 {url}。curl_cffi 的 chrome120 指纹可能不够新；"
-            "试试 impersonate='chrome131' 或其他版本。"
+            f"qoj.ac Cloudflare 30s 内没解开 {url}。可能 QOJ 启用了更激进的 CF 策略；"
+            "试试加 --headed 看截图，或换住宅 IP。"
         )
 
 
@@ -68,7 +129,6 @@ def fetch_contest_meta(session, contest_id):
     resp.raise_for_status()
     html = resp.text
     _check_cf(html, CONTEST_LIST_URL)
-    # 找 contest_id 那一行：name + timeanddate href + duration <td>
     pattern = (
         r'href="/contest/' + re.escape(contest_id) + r'"[^>]*>([^<]+)</a>'
         r'.*?'
@@ -175,17 +235,12 @@ def best_status(subs):
         return None
     acs = [t for s, t in subs if s == "AC"]
     if acs:
-        # 最早 AC 用于判断"赛中过题"；QOJ 列表是新的在前，所以 min 是最早
         return ("AC", min(acs))
     return (subs[0][0], "")
 
 
 def is_during_contest(ac_time_str, start_time, duration_hours):
-    """判断 ac_time_str 是否在 [start_time, start_time + duration_hours] 区间内。
-
-    QOJ 不带时区后缀，服务器时间看起来是 UTC（timeanddate.com 也用 UTC ISO），
-    所以两端都按 UTC 处理。
-    """
+    """判断 ac_time_str 是否在 [start_time, start_time + duration_hours] 区间内。"""
     if not ac_time_str or start_time is None or not duration_hours:
         return False
     try:
@@ -242,52 +297,52 @@ def main():
         sys.exit(2)
 
     print(f"[*] 抓取 contest={contest_id} user={username}", file=sys.stderr)
-    session = _get_session()
-    session.headers["User-Agent"] = "tarjen-wiki-qoj-sync/1.0"
+    session = _open_session()
+    try:
+        # 1) 比赛元信息
+        print(f"[*] 拉 {CONTEST_LIST_URL}", file=sys.stderr)
+        start_time, duration_hours = fetch_contest_meta(session, contest_id)
+        if start_time is None:
+            print(f"[!] 列表页没找到 contest {contest_id}（CF 没解开？或 id 错？）", file=sys.stderr)
+        else:
+            print(f"    start={start_time.isoformat()}  duration={duration_hours}h", file=sys.stderr)
 
-    # 1) 比赛元信息（start_time + duration → 用来判断"赛中 AC"）
-    print(f"[*] 拉 {CONTEST_LIST_URL}", file=sys.stderr)
-    start_time, duration_hours = fetch_contest_meta(session, contest_id)
-    if start_time is None:
-        print(f"[!] 列表页没找到 contest {contest_id}（CF 拦截？或 id 错？）", file=sys.stderr)
-        # 不退出：name 和 problems 还能从单比赛页拿
-    else:
-        print(f"    start={start_time.isoformat()}  duration={duration_hours}h", file=sys.stderr)
+        # 2) 比赛名 + 题目
+        url = CONTEST_PAGE_URL.format(cid=contest_id)
+        print(f"[*] 拉 {url}", file=sys.stderr)
+        name, problems = fetch_contest_page(session, contest_id)
+        print(f"    name={name!r}  problems={len(problems)}", file=sys.stderr)
+        if not problems:
+            print(f"[!] 比赛 {contest_id} 一道题都没拿到", file=sys.stderr)
+            sys.exit(1)
 
-    # 2) 比赛名 + 题目
-    url = CONTEST_PAGE_URL.format(cid=contest_id)
-    print(f"[*] 拉 {url}", file=sys.stderr)
-    name, problems = fetch_contest_page(session, contest_id)
-    print(f"    name={name!r}  problems={len(problems)}", file=sys.stderr)
-    if not problems:
-        print(f"[!] 比赛 {contest_id} 一道题都没拿到", file=sys.stderr)
-        sys.exit(1)
+        entry = {
+            "name": name,
+            "start_time": start_time.isoformat() if start_time else "",
+            "duration_hours": int(duration_hours) if duration_hours else 0,
+            "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "problems": problems,
+            "submissions": {},
+        }
 
-    entry = {
-        "name": name,
-        "start_time": start_time.isoformat() if start_time else "",
-        "duration_hours": int(duration_hours) if duration_hours else 0,
-        "fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "problems": problems,
-        "submissions": {},
-    }
-
-    # 3) 用户每题状态
-    if not args.no_subs:
-        entry["submissions"][username] = {}
-        for p in problems:
-            print(f"[*] 拉 submissions problem_id={p['id']} ({p['letter']})", file=sys.stderr)
-            subs = fetch_user_submissions_for_problem(session, username, p["id"])
-            if not subs:
-                continue
-            status, ac_at = best_status(subs)
-            in_contest = is_during_contest(ac_at, start_time, duration_hours) if status == "AC" else False
-            entry["submissions"][username][str(p["id"])] = {
-                "status": status,
-                "ac_at": ac_at,
-                "in_contest": in_contest,
-                "tried": True,
-            }
+        # 3) 用户每题状态
+        if not args.no_subs:
+            entry["submissions"][username] = {}
+            for p in problems:
+                print(f"[*] 拉 submissions problem_id={p['id']} ({p['letter']})", file=sys.stderr)
+                subs = fetch_user_submissions_for_problem(session, username, p["id"])
+                if not subs:
+                    continue
+                status, ac_at = best_status(subs)
+                in_contest = is_during_contest(ac_at, start_time, duration_hours) if status == "AC" else False
+                entry["submissions"][username][str(p["id"])] = {
+                    "status": status,
+                    "ac_at": ac_at,
+                    "in_contest": in_contest,
+                    "tried": True,
+                }
+    finally:
+        session.close()
 
     # 4) 写 cache
     if args.dry_run:

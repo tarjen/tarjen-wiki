@@ -22,7 +22,9 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # Playwright 安装 chromium ~150MB，10–13 题 × 2–3 页 = 1–3 min 抓取。
+    # 单场最多 15 min（多题多提交翻页）。
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,8 +35,11 @@ jobs:
           python-version: '3.11'
 
       - name: Install qoj sync deps
-        # curl_cffi 用真实 Chrome TLS 指纹绕 Cloudflare；不装浏览器，省 150MB
-        run: pip install curl_cffi
+        # playwright = Python 绑定；playwright install chromium 拉 Chromium 浏览器
+        # 不装系统依赖（--with-deps）省时间；runner-images 通常够用
+        run: |
+          pip install playwright
+          playwright install chromium
 
       - name: Run QOJ sync
         env:
