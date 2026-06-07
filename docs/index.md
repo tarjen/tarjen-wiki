@@ -67,7 +67,7 @@
 
 1. 粘 QOJ 比赛链接（如 `https://qoj.ac/contest/2564` 或只填 `2564`）
 2. 填 QOJ 用户名（如 `tarjen`）
-3. 填 **QOJ 登录 cookie（uojauth）**——见下面「怎么拿 uojauth」
+3. 填 **QOJ 登录 cookies**（粘 Cookie 头整行）——见下面「怎么拿 cookies」
 4. 点「📥 导入」—— 浏览器**一按就走 GitHub Actions** 在服务端跑 `tools/qoj_sync.py`，绕 Cloudflare
 5. 等几秒到 2 分钟（取决于 QOJ 题目数和提交数），出现「✅ 抓到了，13 题」预览
 6. 看一眼映射：AC + 赛中 → `O`，AC + 赛后 → `Ø`，WA/TLE/RE → `!`，没提交 → `.`
@@ -75,20 +75,26 @@
 
 > 提交后输入框里的 cookie **立刻被清空**，也不会被记到 git 历史；只有这次 Actions run 期间会进 env var（日志里 `::add-mask::` 改成 `***`）。
 
-**怎么拿 uojauth**：
+**怎么拿 cookies**：
 
-1. 浏览器打开 [qoj.ac/login](https://qoj.ac/login) 登录（确保「保持登录」勾上）
-2. F12 → **Application** 标签 → 左栏 **Cookies** → 选 `https://qoj.ac` → 找 `uojauth` 一行
-3. 双击 **Value** 列全选 → Ctrl/⌘+C 复制
-4. 粘到 editor 的「QOJ 登录 cookie」框
+QOJ 跑的是 UOJ，登录用 **三个** cookie：`uoj_remember_token`（认证 token）、`uoj_remember_token_check`（防篡改 hash）、`UOJSESSID`（PHP session）。少一个都会被重定向到 `/login`。
 
-只粘 Value 一长串就行；如果不小心连 `uojauth=...` 一起复制了，脚本也能识别。
+最快拿法（F12 → Network）：
+
+1. 浏览器打开 [qoj.ac/login](https://qoj.ac/login) 登录（勾上「保持登录」）
+2. F12 → **Network** 标签
+3. 随便点一条 `qoj.ac` 请求（比如 `contests` 或主页 HTML）
+4. 右边面板找 **Request Headers** → 找 `Cookie:` 一整行
+5. 复制 `Cookie:` **冒号后面的整段值**（形如 `uoj_remember_token=58AuJ...; uoj_remember_token_check=97191...; UOJSESSID=0d65...; uoj_username=tarjen; ...`）
+6. 粘到 editor 的「QOJ 登录 cookies」框
+
+只粘三个核心的（`uoj_remember_token` + `uoj_remember_token_check` + `UOJSESSID`）就够，把其他 `cf_clearance`、`uoj_username`、`uoj_preferred_language` 之类的丢进去也行——脚本会全部注入。
 
 **前置条件**：GitHub PAT 多勾一个 **Workflows: Read and write** 权限（生成页面在 `Workflows` 那一栏）。只有触发的权限要这个，「保存到 GitHub」用的是 Contents:write。
 
 **怎么知道 import 跑成功没**：点完「📥 导入」可以关页面；下次打开编辑器时数据已经在 cache 里了。
 
-**cookie 失效了怎么办**：QOJ 登录态默认 7–30 天。报错信息如果带 `302 → /login`，就是 cookie 过期了，再去 F12 复制一次新的粘进来。
+**cookie 失效了怎么办**：QOJ 登录态默认 7–30 天。报错信息如果带 `重定向到登录页`，就是 cookie 过期/不全了，再去 Network 复制一次新的粘进来。
 
 ### 直接改仓库
 

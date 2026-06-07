@@ -113,7 +113,7 @@ class TestFetchContestPage(unittest.TestCase):
         self.assertEqual(problems, [])
 
     def test_login_redirect_raises_friendly_error(self):
-        # 模拟 uojauth 过期/没填：QOJ 把 /contest/2564 302 到 /login
+        # 模拟 cookie 过期/没填/不够：QOJ 把 /contest/2564 302 到 /login
         s = FakeSession()
         s.responses[qoj_sync.CONTEST_PAGE_URL.format(cid="2564")] = (
             "<html><head><title>Login - QOJ.ac</title></head><body>login form</body></html>"
@@ -121,7 +121,7 @@ class TestFetchContestPage(unittest.TestCase):
         with self.assertRaises(RuntimeError) as cm:
             qoj_sync.fetch_contest_page(s, "2564")
         self.assertIn("登录", str(cm.exception))
-        self.assertIn("uojauth", str(cm.exception))
+        self.assertIn("uoj_remember_token", str(cm.exception))
 
 
 # ---------------- fetch_user_submissions_for_problem ----------------
@@ -350,41 +350,68 @@ class TestMainArgv(unittest.TestCase):
 
 class TestParseCookieKv(unittest.TestCase):
     def test_value_only_uses_default_name(self):
-        # 用户从 DevTools 只复制了 Value 列
+        # 裸 value；用默认 uoj_remember_token
         self.assertEqual(
             qoj_sync._parse_cookie_kv("abc123def456"),
-            ("uojauth", "abc123def456"),
+            [("uoj_remember_token", "abc123def456")],
         )
 
     def test_name_equals_value_split(self):
-        # DevTools "Copy" 整个 cookie 行偶尔会带 "uojauth=..."
+        # 单对：DevTools "Copy" 整个 cookie 行偶尔会带 "uoj_remember_token=..."
         self.assertEqual(
-            qoj_sync._parse_cookie_kv("uojauth=abc123def456"),
-            ("uojauth", "abc123def456"),
+            qoj_sync._parse_cookie_kv("uoj_remember_token=abc123def456"),
+            [("uoj_remember_token", "abc123def456")],
         )
 
     def test_strips_whitespace(self):
         self.assertEqual(
-            qoj_sync._parse_cookie_kv("  uojauth=abc  "),
-            ("uojauth", "abc"),
+            qoj_sync._parse_cookie_kv("  uoj_remember_token=abc  "),
+            [("uoj_remember_token", "abc")],
         )
 
     def test_strips_cookie_prefix(self):
         # Set-Cookie 风格的整行
         self.assertEqual(
-            qoj_sync._parse_cookie_kv("Cookie: uojauth=abc"),
-            ("uojauth", "abc"),
+            qoj_sync._parse_cookie_kv("Cookie: uoj_remember_token=abc"),
+            [("uoj_remember_token", "abc")],
         )
 
-    def test_empty_returns_empty_value(self):
-        self.assertEqual(qoj_sync._parse_cookie_kv(""), ("uojauth", ""))
+    def test_empty_returns_empty_list_pair(self):
+        self.assertEqual(qoj_sync._parse_cookie_kv(""), [("uoj_remember_token", "")])
 
     def test_custom_default_name(self):
-        # 万一 QOJ 改名
         self.assertEqual(
             qoj_sync._parse_cookie_kv("xyz", default_name="UOJ_Auth"),
-            ("UOJ_Auth", "xyz"),
+            [("UOJ_Auth", "xyz")],
         )
+
+    # 多 cookie（QOJ 用 uoj_remember_token + uoj_remember_token_check + UOJSESSID 三件套）
+    def test_multi_cookie_header_split(self):
+        # 整段 Cookie header：'a=1; b=2; c=3'
+        out = qoj_sync._parse_cookie_kv(
+            "uoj_remember_token=58AuJ; uoj_remember_token_check=97191a; UOJSESSID=0d65sv"
+        )
+        self.assertEqual(out, [
+            ("uoj_remember_token", "58AuJ"),
+            ("uoj_remember_token_check", "97191a"),
+            ("UOJSESSID", "0d65sv"),
+        ])
+
+    def test_multi_cookie_with_extra_whitespace_and_prefix(self):
+        # DevTools 复制整段时偶尔会带 "Cookie:" 前缀和奇怪空白
+        out = qoj_sync._parse_cookie_kv(
+            "Cookie: uoj_remember_token=abc ;  uoj_remember_token_check=xyz  ;  UOJSESSID=q"
+        )
+        self.assertEqual(out, [
+            ("uoj_remember_token", "abc"),
+            ("uoj_remember_token_check", "xyz"),
+            ("UOJSESSID", "q"),
+        ])
+
+    def test_multi_cookie_skips_empty_pairs(self):
+        # 容错：双分号 / 末尾分号
+        out = qoj_sync._parse_cookie_kv("a=1;; b=2;")
+        self.assertEqual(out, [("a", "1"), ("b", "2")])
 
 
 if __name__ == "__main__":

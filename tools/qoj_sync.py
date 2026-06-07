@@ -76,20 +76,23 @@ class _PlaywrightSession:
             Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
             Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
         """)
-        # QOJ 要登录才能看比赛页和提交页；从 QOJ_AUTH_COOKIE env 读 uojauth（name=value 或 单 value）
+        # QOJ 要登录才能看比赛页和提交页。从 QOJ_AUTH_COOKIE env 读：
+        # - 整段 Cookie header：'a=1; b=2; c=3' → 三对 cookie 全部注入
+        # - 单对：'uoj_remember_token=abc'
+        # - 裸 value：'abc123' → 用默认名 uoj_remember_token
         # 必须在 new_page() 之前 add_cookies，否则第一次请求不带 cookie，触发 login 重定向
         if auth_cookie:
-            name, value = _parse_cookie_kv(auth_cookie, default_name="uojauth")
-            if value:
-                self._context.add_cookies([{
-                    "name": name,
-                    "value": value,
-                    "domain": "qoj.ac",
-                    "path": "/",
-                    "secure": True,
-                    "sameSite": "Lax",
-                }])
-                print(f"[*] 已注入 QOJ cookie：{name}=<{len(value)} chars>", file=sys.stderr)
+            pairs = _parse_cookie_kv(auth_cookie)
+            # 过滤空 value；Playwright 拒收空字符串
+            cookies = [
+                {"name": n, "value": v, "domain": "qoj.ac", "path": "/",
+                 "secure": True, "sameSite": "Lax"}
+                for n, v in pairs if n and v
+            ]
+            if cookies:
+                self._context.add_cookies(cookies)
+                summary = ", ".join(f"{n}=<{len(v)} chars>" for n, v in cookies)
+                print(f"[*] 已注入 {len(cookies)} 个 QOJ cookie：{summary}", file=sys.stderr)
             else:
                 print("[!] QOJ_AUTH_COOKIE 为空，按匿名访问（比赛页可能 302 → /login）", file=sys.stderr)
         else:
@@ -161,19 +164,33 @@ def _open_session():
         ) from e
 
 
-def _parse_cookie_kv(raw, default_name="uojauth"):
-    """解析用户粘的 cookie 字符串：'uojauth=abc123' → ('uojauth', 'abc123')；只粘 'abc123' → (default_name, 'abc123')。
-    剥首尾空白；剥可能的 'Cookie:' 前缀（DevTools 复制时偶尔带）。
+def _parse_cookie_kv(raw, default_name="uoj_remember_token"):
+    """兼容两种粘法：
+    - 整段 Cookie header（多对）：'uoj_remember_token=abc; uoj_remember_token_check=xyz; UOJSESSID=q'
+      → 返回 [("uoj_remember_token", "abc"), ("uoj_remember_token_check", "xyz"), ("UOJSESSID", "q")]
+    - 单对：'uoj_remember_token=abc' → [("uoj_remember_token", "abc")]
+    - 裸 value：'abc123' → [(default_name, "abc123")]  （少见，但容错）
+    剥首尾空白；剥 'Cookie:' 前缀（DevTools 复制时偶尔带）。
     """
     s = (raw or "").strip()
     if not s:
-        return default_name, ""
+        return [(default_name, "")]
     if s.lower().startswith("cookie:"):
         s = s.split(":", 1)[1].strip()
+    if ";" in s:
+        # 多对：'a=1; b=2; c=3' → [(a,1), (b,2), (c,3)]
+        out = []
+        for part in s.split(";"):
+            part = part.strip()
+            if not part or "=" not in part:
+                continue
+            n, _, v = part.partition("=")
+            out.append((n.strip(), v.strip()))
+        return out
     if "=" in s:
-        name, _, value = s.partition("=")
-        return name.strip(), value.strip()
-    return default_name, s
+        n, _, v = s.partition("=")
+        return [(n.strip(), v.strip())]
+    return [(default_name, s)]
 
 
 # UOJ 在 <a class="small">RESULT_ERROR</a> 里写的原文
@@ -295,7 +312,8 @@ def fetch_contest_page(session, contest_id):
     if re.search(r'<title>\s*Login\s*-\s*QOJ\.ac\s*</title>', html, re.IGNORECASE):
         raise RuntimeError(
             f"QOJ 把 {CONTEST_PAGE_URL.format(cid=contest_id)} 重定向到登录页。"
-            "uojauth cookie 可能过期或复制错了；重新 F12 → Cookies 复制一次。"
+            "Cookie 可能过期/复制错。QOJ 用的是 uoj_remember_token + uoj_remember_token_check + UOJSESSID 这三件套，"
+            "重新去 F12 → Network → Request Headers → Cookie 整行复制（不要只粘一个）。"
         )
     name_m = re.search(r'<h1[^>]*>([^<]+)</h1>', html)
     name = name_m.group(1).strip() if name_m else f"Contest {contest_id}"
