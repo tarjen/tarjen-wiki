@@ -50,13 +50,32 @@ class _PlaywrightSession:
     def __init__(self):
         from playwright.sync_api import sync_playwright
         self._p = sync_playwright().start()
-        self._browser = self._p.chromium.launch(headless=True)
+        # 隐身 flags：让 CF 不把它当 headless bot
+        # - disable-blink-features=AutomationControlled: 去掉 navigator.webdriver 标志
+        # - disable-dev-shm-usage: GitHub Actions runner /dev/shm 小
+        self._browser = self._p.chromium.launch(
+            headless=True,
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--disable-dev-shm-usage",
+                "--no-sandbox",
+            ],
+        )
         self._context = self._browser.new_context(
             user_agent=(
                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
                 "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
+            ),
+            viewport={"width": 1280, "height": 800},
+            locale="en-US",
         )
+        # 每个新页面加载前注入脚本：彻底盖掉 webdriver 痕迹
+        self._context.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            window.chrome = { runtime: {} };
+            Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+        """)
         self._page = self._context.new_page()
 
     def get(self, url, params=None):
