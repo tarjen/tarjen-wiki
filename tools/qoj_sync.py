@@ -156,11 +156,118 @@ class _PlaywrightSession:
             self._p.stop()
 
 
+class _CffiSession:
+    """curl_cffi 模拟 Chrome TLS 指纹 + JA3 签名，让 cf_clearance cookie 继续有效。
+
+    Playwright 解开 CF 后，cf_clearance 会被绑到 (IP, UA, TLS 指纹)。
+    用 curl_cffi impersonate="chrome120" 伪造同样的 TLS 指纹，cf_clearance 还能用，
+    之后每个 /submissions 请求几百 ms 就回来，不用每次都跑 CF JS challenge。
+
+    复用 Playwright 拿到的所有 cookies（uoj_remember_token + uoj_remember_token_check
+    + UOJSESSID + cf_clearance），用 User-Agent 保持一致。
+    """
+
+    def __init__(self, cookies, user_agent):
+        try:
+            from curl_cffi import requests as cffi
+        except ImportError as e:
+            raise RuntimeError(
+                "缺少 curl_cffi 依赖。CI workflow 应该 pip install curl-cffi。"
+            ) from e
+        self._s = cffi.Session(impersonate="chrome120")
+        # Playwright context.cookies() 返回 list[dict]，key 是 name/value/domain/path/...
+        # domain 加点号让 cf_clearance 跨子域生效；QOJ 全站都在 qoj.ac
+        for c in cookies:
+            self._s.cookies.set(
+                c["name"], c["value"],
+                domain=c.get("domain", ".qoj.ac"),
+                path=c.get("path", "/"),
+            )
+        self._s.headers["User-Agent"] = user_agent
+        # 不要走代理；CI 默认不走，我们也不需要
+        self._s.proxies = {}
+
+    def get(self, url, params=None):
+        full = url
+        if params:
+            full = url + ('&' if '?' in url else '?') + urlencode(params)
+        r = self._s.get(full, timeout=30, allow_redirects=True)
+        return _Response(r.text, status=r.status_code)
+
+    def close(self):
+        try:
+            self._s.close()
+        except Exception:
+            pass
+
+
+class _HybridSession:
+    """Playwright 跑前几个请求（解 CF + 拿 cf_clearance）→ 切到 curl_cffi 跑剩下的。
+
+    为什么不全程 Playwright：/submissions 那个 CF 节点比 /contest/2564 严很多，
+    Playwright 60s × 3 次都解不开。Playwright + curl_cffi 组合是最稳的：
+    - Playwright 拿 cf_clearance（带正确 IP/UA/TLS 指纹）
+    - curl_cffi 用同样的 UA + impersonate 同样的 TLS 指纹，cf_clearance 一直有效
+
+    fetch_contest_meta 还在 Playwright 阶段（用 page.evaluate 解析 DOM），
+    切到 curl_cffi 之前必须先跑完 fetch_contest_meta。
+    """
+
+    def __init__(self, auth_cookie=None):
+        self._pw = _PlaywrightSession(auth_cookie=auth_cookie)
+        self._cffi = None
+        self._use_cffi = False
+
+    @property
+    def _page(self):
+        """暴露给 fetch_contest_meta 的 page.evaluate 用。切到 curl_cffi 后会抛错。"""
+        if self._use_cffi:
+            raise RuntimeError(
+                "session 已经在 curl_cffi 模式，page.evaluate 不可用；"
+                "fetch_contest_meta 必须在 switch_to_cffi() 之前调用"
+            )
+        return self._pw._page
+
+    def get(self, url, params=None):
+        if self._use_cffi:
+            return self._cffi.get(url, params)
+        return self._pw.get(url, params)
+
+    def switch_to_cffi(self):
+        """捕获 Playwright 当前的 cookies + UA，构造 _CffiSession 接管后续请求。"""
+        if self._use_cffi:
+            return
+        cookies = self._pw._context.cookies()
+        try:
+            ua = self._pw._context.user_agent
+        except Exception:
+            ua = (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+        self._cffi = _CffiSession(cookies=cookies, user_agent=ua)
+        self._use_cffi = True
+        cf_present = any(c.get("name") == "cf_clearance" for c in cookies)
+        names = [c.get("name") for c in cookies]
+        print(
+            f"[*] 切换到 curl_cffi：{len(cookies)} cookies "
+            f"(cf_clearance={'✓' if cf_present else '✗'}, names={names})",
+            file=sys.stderr,
+        )
+
+    def close(self):
+        try:
+            if self._cffi:
+                self._cffi.close()
+        finally:
+            self._pw.close()
+
+
 def _open_session():
     """打开一个 fetcher session。失败抛 RuntimeError 让 CI 重试更明显。"""
     cookie = os.environ.get("QOJ_AUTH_COOKIE", "").strip()
     try:
-        return _PlaywrightSession(auth_cookie=cookie or None)
+        return _HybridSession(auth_cookie=cookie or None)
     except ImportError as e:
         raise RuntimeError(
             "缺少 playwright 依赖。CI workflow 应该 pip install playwright + playwright install chromium。"
@@ -477,6 +584,14 @@ def main():
                 print(f"[!] 没拿到 start_time；submission 没法判断'赛中/赛后'，全标 Ø", file=sys.stderr)
             else:
                 print(f"    start={start_time.isoformat()}  duration={duration_hours}h", file=sys.stderr)
+
+        # 2.5) Playwright 已经解过 CF 了（至少 /contest/2564 一次 + /contests 一次），
+        # cf_clearance 已经在 context cookies 里。切到 curl_cffi 跑剩下的 /submissions：
+        # - /submissions 那个 CF 节点比 /contest/2564 严很多，Playwright 60s × 3 都解不开
+        # - curl_cffi 用同样的 UA + impersonate="chrome120" → 同样的 TLS 指纹，cf_clearance 继续有效
+        # - curl_cffi 一次请求 ~300ms vs Playwright 跑 CF JS challenge ~5-15s
+        # 注意：必须在 fetch_contest_meta 之后切（fetch_contest_meta 还在用 page.evaluate）
+        session.switch_to_cffi()
 
         entry = {
             "name": name,
