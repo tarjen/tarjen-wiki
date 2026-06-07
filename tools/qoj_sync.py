@@ -91,7 +91,7 @@ class _PlaywrightSession:
             ]
             if cookies:
                 self._context.add_cookies(cookies)
-                summary = ", ".join(f"{n}=<{len(v)} chars>" for n, v in cookies)
+                summary = ", ".join(f"{n}=<{len(v)} chars>" for n, v in pairs if n and v)
                 print(f"[*] 已注入 {len(cookies)} 个 QOJ cookie：{summary}", file=sys.stderr)
             else:
                 print("[!] QOJ_AUTH_COOKIE 为空，按匿名访问（比赛页可能 302 → /login）", file=sys.stderr)

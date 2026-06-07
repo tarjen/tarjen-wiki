@@ -413,6 +413,23 @@ class TestParseCookieKv(unittest.TestCase):
         out = qoj_sync._parse_cookie_kv("a=1;; b=2;")
         self.assertEqual(out, [("a", "1"), ("b", "2")])
 
+    def test_summary_unpacks_pairs_not_cookies_dicts(self):
+        # 回归测试：之前 _PlaywrightSession.__init__ 用 for n,v in cookies
+        # 拿 dict 列表解包成 2 个 var 报 "too many values to unpack"。
+        # 修复：用 pairs (list[tuple]) 来生成日志 summary。
+        pairs = qoj_sync._parse_cookie_kv("uoj_remember_token=58AuJ; UOJSESSID=0d65sv")
+        cookies = [
+            {"name": n, "value": v, "domain": "qoj.ac", "path": "/",
+             "secure": True, "sameSite": "Lax"}
+            for n, v in pairs if n and v
+        ]
+        # 这一行模拟 _PlaywrightSession 里的 summary 生成；不能 raise
+        summary = ", ".join(f"{n}=<{len(v)} chars>" for n, v in pairs if n and v)
+        self.assertEqual(summary, "uoj_remember_token=<5 chars>, UOJSESSID=<6 chars>")
+        # cookies 仍是 dict 列表（4 键），不会跟 pairs 混淆
+        self.assertEqual(len(cookies), 2)
+        self.assertEqual(cookies[0]["name"], "uoj_remember_token")
+
 
 if __name__ == "__main__":
     unittest.main()
