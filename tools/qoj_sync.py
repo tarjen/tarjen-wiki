@@ -63,11 +63,19 @@ class _PlaywrightSession:
         full = url
         if params:
             full = url + ('&' if '?' in url else '?') + urlencode(params)
-        self._page.goto(full, wait_until="domcontentloaded", timeout=30000)
-        # CF JS 挑战：title 含 "Just a moment" 时等 networkidle（JS 跑完 CF 验证）
-        # 实测 5–10s 解决；给 30s 余量
-        if "Just a moment" in self._page.title():
-            self._page.wait_for_load_state("networkidle", timeout=30000)
+        # 等 load 事件（DOMContentLoaded + 子资源）— 比 networkidle 宽松，CF 不会卡
+        self._page.goto(full, wait_until="load", timeout=30000)
+        # CF v5 JS challenge：title "Just a moment..." 表示还没解
+        # 用 wait_for_function 等 title 变（最长 45s）—— 比 networkidle 可靠，
+        # networkidle 会被 CF 的动画/heartbeat 请求一直阻
+        try:
+            self._page.wait_for_function(
+                "() => !document.title.toLowerCase().includes('just a moment')",
+                timeout=45000,
+            )
+        except Exception:
+            # 让 _check_cf 抛出友好错误
+            pass
         return _Response(self._page.content())
 
     def close(self):
@@ -120,33 +128,77 @@ def _check_cf(html, url):
 def fetch_contest_meta(session, contest_id):
     """从 contests 列表页找 (start_time, duration_hours)。
 
-    列表页一行（实测）：
-    <a href="/contest/2564" ...>Name</a>
-    <a href="https://www.timeanddate.com/worldclock/.../?iso=20251130T0930" target="_blank">2025-11-30 09:30</a>
-    <td>5</td>   ← 持续小时
+    用 page.evaluate 解析 DOM 而不是 regex：HTML 结构可能因时间/页面状态变，
+    但语义稳定。失败时把 HTML 写到 docs/data/qoj-debug-list.html 方便排查。
     """
     resp = session.get(CONTEST_LIST_URL)
     resp.raise_for_status()
     html = resp.text
     _check_cf(html, CONTEST_LIST_URL)
+
+    # 优先：DOM 评估（精确，不受 HTML whitespace/属性顺序影响）
+    try:
+        result = session._page.evaluate("""
+            (cid) => {
+                const sel = `a[href="/contest/${cid}"]`;
+                const link = document.querySelector(sel);
+                if (!link) return null;
+                // 往祖先 tr 找，找同行的 timeanddate 和时长
+                let row = link.closest('tr');
+                if (!row) return { name: link.textContent.trim() };
+                const td = row.querySelector('a[href*="timeanddate.com"]');
+                let iso = null;
+                if (td) {
+                    const m = td.href.match(/iso=(\\d{8})T(\\d{4})/);
+                    if (m) iso = [m[1], m[2]];
+                }
+                let duration = null;
+                for (const t of row.querySelectorAll('td')) {
+                    const s = t.textContent.trim();
+                    if (/^\\d+$/.test(s)) { duration = parseInt(s, 10); break; }
+                }
+                return { name: link.textContent.trim(), iso, duration };
+            }
+        """, contest_id)
+    except Exception as e:
+        print(f"[!] DOM evaluate failed: {e}; falling back to regex", file=sys.stderr)
+        result = None
+
+    if result and result.get("iso"):
+        try:
+            start_time = datetime.strptime(
+                result["iso"][0] + result["iso"][1], "%Y%m%d%H%M"
+            ).replace(tzinfo=timezone.utc)
+            return start_time, result.get("duration")
+        except (ValueError, IndexError):
+            pass
+
+    # 备用：regex（DOM 评估失败或 FakeSession 测试用）
     pattern = (
         r'href="/contest/' + re.escape(contest_id) + r'"[^>]*>([^<]+)</a>'
         r'.*?'
         r'iso=(\d{8})T(\d{4})'
         r'.*?'
-        r'<td[^>]*>(\d+)</td>'
+        r'<td[^>]*>\s*(\d+)\s*</td>'
     )
     m = re.search(pattern, html, re.DOTALL)
-    if not m:
-        return None, None
-    name = m.group(1).strip()
-    iso_date, iso_time = m.group(2), m.group(3)
+    if m:
+        name = m.group(1).strip()
+        try:
+            start_time = datetime.strptime(
+                m.group(2) + m.group(3), "%Y%m%d%H%M"
+            ).replace(tzinfo=timezone.utc)
+            return start_time, int(m.group(4))
+        except ValueError:
+            return name, None
+
+    # 调试：写 HTML 到 docs/data/，workflow 会 commit 上去
     try:
-        start_time = datetime.strptime(iso_date + iso_time, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
-    except ValueError:
-        return name, None
-    duration_hours = int(m.group(4))
-    return start_time, duration_hours
+        Path("docs/data/qoj-debug-list.html").write_text(html, encoding="utf-8")
+        print(f"[!] contest {contest_id} 没在列表页找到；HTML 已写到 docs/data/qoj-debug-list.html", file=sys.stderr)
+    except Exception:
+        pass
+    return None, None
 
 
 def fetch_contest_page(session, contest_id):
