@@ -291,6 +291,12 @@ def fetch_contest_page(session, contest_id):
     resp.raise_for_status()
     html = resp.text
     _check_cf(html, CONTEST_PAGE_URL.format(cid=contest_id))
+    # QOJ 未登录会把 /contest/{id} 重定向到 /login（页面 title 变成 "Login - QOJ.ac"）
+    if re.search(r'<title>\s*Login\s*-\s*QOJ\.ac\s*</title>', html, re.IGNORECASE):
+        raise RuntimeError(
+            f"QOJ 把 {CONTEST_PAGE_URL.format(cid=contest_id)} 重定向到登录页。"
+            "uojauth cookie 可能过期或复制错了；重新 F12 → Cookies 复制一次。"
+        )
     name_m = re.search(r'<h1[^>]*>([^<]+)</h1>', html)
     name = name_m.group(1).strip() if name_m else f"Contest {contest_id}"
     problems = []

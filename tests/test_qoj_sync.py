@@ -112,6 +112,17 @@ class TestFetchContestPage(unittest.TestCase):
         self.assertEqual(name, "Contest 42")
         self.assertEqual(problems, [])
 
+    def test_login_redirect_raises_friendly_error(self):
+        # 模拟 uojauth 过期/没填：QOJ 把 /contest/2564 302 到 /login
+        s = FakeSession()
+        s.responses[qoj_sync.CONTEST_PAGE_URL.format(cid="2564")] = (
+            "<html><head><title>Login - QOJ.ac</title></head><body>login form</body></html>"
+        )
+        with self.assertRaises(RuntimeError) as cm:
+            qoj_sync.fetch_contest_page(s, "2564")
+        self.assertIn("登录", str(cm.exception))
+        self.assertIn("uojauth", str(cm.exception))
+
 
 # ---------------- fetch_user_submissions_for_problem ----------------
 
