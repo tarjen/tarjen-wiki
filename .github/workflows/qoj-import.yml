@@ -11,10 +11,8 @@ on:
       username:
         description: 'QOJ username (e.g. tarjen)'
         required: true
-      qoj_cookie:
-        description: 'QOJ uojauth cookie value (从浏览器 F12 → Application → Cookies 复制). 只用于本次 run，actions 日志里会 mask.'
-        required: true
-        type: string
+    # cookie 走 secrets.QOJ_AUTH_COOKIE——加密 at rest，log 完全看不到；
+    # 一次设置，所有 run 共用，cookie 过期了去 GH Settings 改一次。
 
 permissions:
   contents: write
@@ -49,10 +47,11 @@ jobs:
         env:
           CONTEST_ID: ${{ inputs.contest_id }}
           USERNAME: ${{ inputs.username }}
-          QOJ_AUTH_COOKIE: ${{ inputs.qoj_cookie }}
-        # ::add-mask:: 让 qoj_cookie 的值在 logs 里显示为 ***，避免误打印泄露
-        # 放在第一个 echo 之前：mask 只对后续行生效
+          # cookie 走 secret：加密 at rest，log 完全看不到（连 env 列表也是 ***）
+          # 一次设置，所有 run 共用，cookie 过期了去 Repo Settings 改一次
+          QOJ_AUTH_COOKIE: ${{ secrets.QOJ_AUTH_COOKIE }}
         run: |
+          # ::add-mask:: 兜底（secret 本身已经自动 mask，这里写一下是显式意图）
           echo "::add-mask::$QOJ_AUTH_COOKIE"
           python3 tools/qoj_sync.py "$CONTEST_ID" "$USERNAME"
         # 不加 continue-on-error：失败要让下一部的 artifact 上传跑起来

@@ -287,10 +287,10 @@
     <h2>📥 从 QOJ 导入</h2>
     <div class="card">
       <p class="hint" style="margin-top: 0;">
-        粘比赛链接 + 用户名 + 登录 cookie → 点「导入」会触发 GitHub Actions 在服务端抓取你的比赛记录，
+        粘比赛链接 + 用户名 → 点「导入」会触发 GitHub Actions 在服务端抓取你的比赛记录，
         抓完点「填入表单」就能直接保存到 <code>contests.csv</code>。
         整个过程在 GitHub 服务器跑，绕过 Cloudflare，浏览器零依赖。
-        <strong>QOJ 比赛页和提交页要登录</strong>，所以每次（cookie 过期前）要粘一次 uojauth。
+        <strong>QOJ 比赛页和提交页要登录</strong>：维护者已经把 <code>QOJ_AUTH_COOKIE</code> 设为 repo Secret，workflow 自动用。
       </p>
       <div class="row">
         <div>
@@ -301,19 +301,6 @@
           <label>QOJ 用户名</label>
           <input type="text" id="qoj-user" placeholder="tarjen">
         </div>
-      </div>
-      <div style="margin-top:0.8em;">
-        <label>
-          QOJ 登录 cookies
-          <span class="hint">
-            （浏览器登录 QOJ → F12 → Network → 随便点一条 qoj.ac 请求 → 看 <strong>Request Headers</strong> → 复制整行 <code>Cookie:</code> 头的值；
-            至少要 <code>uoj_remember_token</code> + <code>uoj_remember_token_check</code>。
-            <a href="https://qoj.ac/login" target="_blank" rel="noopener">先登录</a>。
-            提交后即清除字段。）
-          </span>
-        </label>
-        <input type="password" id="qoj-cookie" autocomplete="off" spellcheck="false"
-               placeholder="粘 Cookie 头整行（a=1; b=2; c=3）">
       </div>
       <div style="display:flex;gap:0.5em;margin-top:1em;flex-wrap:wrap;align-items:center;">
         <button class="btn primary" id="btn-qoj-fetch">📥 导入</button>
@@ -901,10 +888,8 @@
     $('btn-qoj-fetch').addEventListener('click', function () {
       var contestId = parseQojContestId($('qoj-contest').value);
       var username = $('qoj-user').value.trim();
-      var cookie = $('qoj-cookie').value.trim();
       if (!contestId) { W.toast('先填 QOJ 比赛 URL 或 ID', true); return; }
       if (!username) { W.toast('先填 QOJ 用户名', true); return; }
-      if (!cookie) { W.toast('先粘 QOJ cookies（F12 → Network → Request Headers → Cookie 行）', true); return; }
       if (!W.getToken()) {
         W.toast('先在「GitHub Token 配置」里保存 token', true);
         var d = $('token-config'); if (d) { d.open = true; d.scrollIntoView(); }
@@ -916,12 +901,9 @@
       $('qoj-status').textContent = '正在 POST GitHub API…';
       $('qoj-preview').style.display = 'none';
       $('qoj-preview').innerHTML = '';
-      // 立刻清掉 cookie 字段：万一页面被截图 / 共享屏幕也看不到
-      $('qoj-cookie').value = '';
       W.triggerWorkflow('qoj-import.yml', {
         contest_id: contestId,
         username: username,
-        qoj_cookie: cookie,
       }).then(function () {
         var startedAt = new Date().toISOString();
         $('qoj-status').textContent = '⏳ GitHub 正在抓取（最长 2 分钟）…';
