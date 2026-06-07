@@ -82,20 +82,47 @@ class _PlaywrightSession:
         full = url
         if params:
             full = url + ('&' if '?' in url else '?') + urlencode(params)
-        # 等 load 事件（DOMContentLoaded + 子资源）— 比 networkidle 宽松，CF 不会卡
-        self._page.goto(full, wait_until="load", timeout=30000)
-        # CF v5 JS challenge：title "Just a moment..." 表示还没解
-        # 用 wait_for_function 等 title 变（最长 45s）—— 比 networkidle 可靠，
-        # networkidle 会被 CF 的动画/heartbeat 请求一直阻
-        try:
-            self._page.wait_for_function(
-                "() => !document.title.toLowerCase().includes('just a moment')",
-                timeout=45000,
-            )
-        except Exception:
-            # 让 _check_cf 抛出友好错误
-            pass
+        # domcontentloaded 比 load 快；CF challenge 也会触发 load 事件但内容是空壳
+        self._page.goto(full, wait_until="domcontentloaded", timeout=30000)
+        # CF v5 JS challenge：title "Just a moment..." 或 URL 含 /challenge
+        # Python 端轮询 page.title() —— 比 wait_for_function 可靠（CDP eval 偶尔丢）
+        import time
+        deadline = time.time() + 60
+        cf_started = time.time()
+        while time.time() < deadline:
+            try:
+                title = self._page.title().lower()
+                cur_url = self._page.url
+            except Exception:
+                time.sleep(1)
+                continue
+            if "just a moment" not in title and "checking your browser" not in title:
+                break
+            time.sleep(1)
+        else:
+            # 60s 还没解开，截屏 + dump HTML 方便 debug
+            self._dump_debug(full, reason="cf_timeout_60s")
         return _Response(self._page.content())
+
+    def _dump_debug(self, url, reason=""):
+        """CF 60s 没解开时，把截图 + HTML 写到 docs/data/，workflow 会传 artifact。"""
+        try:
+            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+            stem = re.sub(r"[^a-z0-9]+", "_", url.split("//", 1)[-1])[:50]
+            html_path = Path(f"docs/data/qoj-debug-{stem}-{ts}.html")
+            png_path = Path(f"docs/data/qoj-debug-{stem}-{ts}.png")
+            html_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                html_path.write_text(self._page.content(), encoding="utf-8")
+            except Exception as e:
+                print(f"[!] dump HTML failed: {e}", file=sys.stderr)
+            try:
+                self._page.screenshot(path=str(png_path), full_page=True)
+            except Exception as e:
+                print(f"[!] dump screenshot failed: {e}", file=sys.stderr)
+            print(f"[!] {reason} — {url} → {html_path}, {png_path}", file=sys.stderr)
+        except Exception as e:
+            print(f"[!] _dump_debug failed: {e}", file=sys.stderr)
 
     def close(self):
         try:
@@ -135,12 +162,11 @@ STATUS_TO_CODE = {
 
 def _check_cf(html, url):
     """检测 Cloudflare 挑战页：如果 Playwright 拿到的是 CF 验证页（没解开），让用户看到清晰错误。"""
-    # CF "Just a moment..." 标题在 _PlaywrightSession 已经等 networkidle 解决了
-    # 但如果 <title> 还在 / 或页面 body 还是 cf-mitigated 标记，说明 30s 没解完
     if "Just a moment..." in html or "cf-mitigated" in html or "cf_chl_opt" in html:
         raise RuntimeError(
-            f"qoj.ac Cloudflare 30s 内没解开 {url}。可能 QOJ 启用了更激进的 CF 策略；"
-            "试试加 --headed 看截图，或换住宅 IP。"
+            f"qoj.ac Cloudflare 60s 内没解开 {url}。HTML + 截图已写到 docs/data/qoj-debug-* "
+            "（artifact qoj-debug-html 里有）。可能 QOJ 启用了更激进的 CF 策略；"
+            "GitHub Actions IP 段可能整体被标记为高风险，试试换 runner IP。"
         )
 
 
@@ -358,6 +384,7 @@ def main():
     parser.add_argument("username", nargs="?", help="QOJ username (e.g. tarjen)")
     parser.add_argument("--dry-run", action="store_true", help="只打印抓到的 JSON，不写文件")
     parser.add_argument("--no-subs", action="store_true", help="只抓比赛元信息，不抓 submissions")
+    parser.add_argument("--skip-list", action="store_true", help="跳过 contests 列表（不拿 start_time/duration）")
     args = parser.parse_args()
 
     contest_id = (args.contest_id or os.environ.get("CONTEST_ID", "")).strip()
@@ -370,15 +397,7 @@ def main():
     print(f"[*] 抓取 contest={contest_id} user={username}", file=sys.stderr)
     session = _open_session()
     try:
-        # 1) 比赛元信息
-        print(f"[*] 拉 {CONTEST_LIST_URL}", file=sys.stderr)
-        start_time, duration_hours = fetch_contest_meta(session, contest_id)
-        if start_time is None:
-            print(f"[!] 列表页没找到 contest {contest_id}（CF 没解开？或 id 错？）", file=sys.stderr)
-        else:
-            print(f"    start={start_time.isoformat()}  duration={duration_hours}h", file=sys.stderr)
-
-        # 2) 比赛名 + 题目
+        # 1) 比赛名 + 题目（直接进比赛页；CF re-validation 概率低）
         url = CONTEST_PAGE_URL.format(cid=contest_id)
         print(f"[*] 拉 {url}", file=sys.stderr)
         name, problems = fetch_contest_page(session, contest_id)
@@ -386,6 +405,17 @@ def main():
         if not problems:
             print(f"[!] 比赛 {contest_id} 一道题都没拿到", file=sys.stderr)
             sys.exit(1)
+
+        # 2) 比赛元信息（start_time + duration → "赛中 AC" 判定用）
+        # 不强求：拿不到就让用户填日期；submission 全标 Ø
+        start_time, duration_hours = (None, None)
+        if not args.skip_list:
+            print(f"[*] 拉 {CONTEST_LIST_URL}（拿 start_time + duration）", file=sys.stderr)
+            start_time, duration_hours = fetch_contest_meta(session, contest_id)
+            if start_time is None:
+                print(f"[!] 没拿到 start_time；submission 没法判断'赛中/赛后'，全标 Ø", file=sys.stderr)
+            else:
+                print(f"    start={start_time.isoformat()}  duration={duration_hours}h", file=sys.stderr)
 
         entry = {
             "name": name,

@@ -46,14 +46,16 @@ jobs:
           CONTEST_ID: ${{ inputs.contest_id }}
           USERNAME: ${{ inputs.username }}
         run: python3 tools/qoj_sync.py "$CONTEST_ID" "$USERNAME"
-        continue-on-error: true  # 即使抓取失败也继续，下一步要上传 debug HTML
+        # 不加 continue-on-error：失败要让下一部的 artifact 上传跑起来
 
       - name: Upload debug HTML on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: qoj-debug-html
-          path: docs/data/qoj-debug-*.html
+          path: |
+            docs/data/qoj-debug-*.html
+            docs/data/qoj-debug-*.png
           if-no-files-found: ignore
 
       - name: Commit cache back to main
