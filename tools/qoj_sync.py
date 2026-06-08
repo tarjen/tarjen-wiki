@@ -621,13 +621,12 @@ def main():
             else:
                 print(f"    start={start_time.isoformat()}  duration={duration_hours}h", file=sys.stderr)
 
-        # 2.5) Playwright 已经解过 CF 了（至少 /contest/2564 一次 + /contests 一次），
-        # cf_clearance 已经在 context cookies 里。切到 curl_cffi 跑剩下的 /submissions：
-        # - /submissions 那个 CF 节点比 /contest/2564 严很多，Playwright 60s × 3 都解不开
-        # - curl_cffi 用同样的 UA + impersonate="chrome120" → 同样的 TLS 指纹，cf_clearance 继续有效
-        # - curl_cffi 一次请求 ~300ms vs Playwright 跑 CF JS challenge ~5-15s
-        # 注意：必须在 fetch_contest_meta 之后切（fetch_contest_meta 还在用 page.evaluate）
-        session.switch_to_cffi()
+        # 2.5) 不再切到 curl_cffi：CF 把 cf_clearance 绑到 TLS 指纹（JA3/JA4），
+        # curl_cffi 的 chrome impersonation 跟 Playwright 的 Chromium 不完全一致，
+        # CF 直接给 403 + 重新发 challenge，curl_cffi 跑不了 JS 永远解不开（run 27115687244）。
+        # 全程 Playwright：给 /submissions 第一次 180s × 2 = 6 min 解 challenge，
+        # 拿到 /submissions-specific cf_clearance 后剩下的题秒回。
+        # （_HybridSession.switch_to_cffi 保留为备用，如果哪天 CF 升级了 fingerprint 检测再说。）
 
         entry = {
             "name": name,
