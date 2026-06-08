@@ -141,38 +141,54 @@ class _PlaywrightSession:
         """
         try:
             # 1) 找 Turnstile response input（CF 总是渲一个 hidden input[name='cf-turnstile-response']）
+            # 等一下让它出现（Turnstile JS 是 async defer 加载的，domcontentloaded 时可能还没渲）
+            try:
+                self._page.locator("input[name='cf-turnstile-response']").wait_for(state="attached", timeout=10000)
+            except Exception:
+                print("[*] 没有 Turnstile response input（普通 challenge 或没 challenge）", file=sys.stderr)
+                return
+            print("[*] 检测到 Cloudflare Turnstile challenge", file=sys.stderr)
             resp_input = self._page.locator("input[name='cf-turnstile-response']")
-            if resp_input.count() == 0:
-                return  # 没有 Turnstile，是普通 JS challenge 或没 challenge
-            # 2) 找 Turnstile iframe
-            for frame in self._page.frames:
-                if "challenges.cloudflare.com" not in (frame.url or ""):
-                    continue
-                # 3) 找 checkbox / label 并点
-                for sel in ("input[type='checkbox']", ".cb-lb", "label", "body"):
-                    try:
-                        el = frame.locator(sel).first
-                        if el.count() == 0:
-                            continue
-                        try:
-                            el.wait_for(state="visible", timeout=3000)
-                        except Exception:
-                            pass
-                        el.click(timeout=2000, force=True)
-                        print(f"[*] 点 Turnstile {sel} → done", file=sys.stderr)
-                        # 给 Turnstile JS 3s 跑验证；看 response input 有没有值
-                        import time as _t
-                        for _ in range(30):
-                            _t.sleep(0.1)
-                            val = resp_input.evaluate("el => el.value")
-                            if val and len(val) > 20:
-                                print(f"[*] Turnstile 已通过（token {len(val)} chars），等页面跳转", file=sys.stderr)
-                                return
-                        print("[!] 点完 3s Turnstile response 还是空，CF 可能没接受", file=sys.stderr)
-                        return
-                    except Exception as e:
-                        print(f"[!] Turnstile 点 {sel} 失败：{e}", file=sys.stderr)
+            # 2) 等 Turnstile iframe 出现（最多 15s）
+            iframe = None
+            for _ in range(30):
+                for frame in self._page.frames:
+                    if "challenges.cloudflare.com" in (frame.url or "") and "/turnstile/" in (frame.url or ""):
+                        iframe = frame
+                        break
+                if iframe:
+                    break
+                import time as _t
+                _t.sleep(0.5)
+            if not iframe:
+                print("[!] Turnstile response input 有了但 iframe 没出现（invisible 模式？）", file=sys.stderr)
+                return
+            print(f"[*] Turnstile iframe 出现：{iframe.url[:80]}", file=sys.stderr)
+            # 3) 找 checkbox / label 并点
+            for sel in ("input[type='checkbox']", ".cb-lb", "label", "body"):
+                try:
+                    el = iframe.locator(sel).first
+                    if el.count() == 0:
                         continue
+                    try:
+                        el.wait_for(state="visible", timeout=5000)
+                    except Exception:
+                        pass
+                    el.click(timeout=2000, force=True)
+                    print(f"[*] 点 Turnstile {sel} → done", file=sys.stderr)
+                    # 给 Turnstile JS 3s 跑验证；看 response input 有没有值
+                    import time as _t
+                    for _ in range(30):
+                        _t.sleep(0.1)
+                        val = resp_input.evaluate("el => el.value")
+                        if val and len(val) > 20:
+                            print(f"[*] Turnstile 已通过（token {len(val)} chars），等页面跳转", file=sys.stderr)
+                            return
+                    print("[!] 点完 3s Turnstile response 还是空，CF 可能没接受", file=sys.stderr)
+                    return
+                except Exception as e:
+                    print(f"[!] Turnstile 点 {sel} 失败：{e}", file=sys.stderr)
+                    continue
             print("[!] Turnstile iframe 找到了但没点到 checkbox", file=sys.stderr)
         except Exception as e:
             print(f"[!] Turnstile solver 异常：{e}", file=sys.stderr)
