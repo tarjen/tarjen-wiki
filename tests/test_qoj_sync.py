@@ -51,8 +51,9 @@ class FakeSession:
         self.calls = []
         self.responses = {}  # url → text
 
-    def get(self, url, params=None):
-        self.calls.append({"url": url, "params": params})
+    def get(self, url, params=None, **kwargs):
+        # 接受 _cf_timeout / _retries 等 kwargs（real session 才有）—— 测试用不到，吞掉即可
+        self.calls.append({"url": url, "params": params, "kwargs": kwargs})
         return FakeResp(self.responses.get(url, ""))
 
 

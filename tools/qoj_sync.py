@@ -99,7 +99,7 @@ class _PlaywrightSession:
             print("[!] 未提供 QOJ_AUTH_COOKIE，按匿名访问（比赛页可能 302 → /login）", file=sys.stderr)
         self._page = self._context.new_page()
 
-    def get(self, url, params=None, _retries=2):
+    def get(self, url, params=None, _retries=2, _cf_timeout=120):
         full = url
         if params:
             full = url + ('&' if '?' in url else '?') + urlencode(params)
@@ -109,7 +109,7 @@ class _PlaywrightSession:
             self._page.goto(full, wait_until="domcontentloaded", timeout=30000)
             # CF v5 JS challenge：title "Just a moment..." 或 URL 含 /challenge
             # Python 端轮询 page.title() —— 比 wait_for_function 可靠（CDP eval 偶尔丢）
-            deadline = time.time() + 60
+            deadline = time.time() + _cf_timeout
             while time.time() < deadline:
                 try:
                     title = self._page.title().lower()
@@ -119,13 +119,13 @@ class _PlaywrightSession:
                 if "just a moment" not in title and "checking your browser" not in title:
                     return _Response(self._page.content())
                 time.sleep(1)
-            # 60s 还在 CF 挑战页：reload 一次（cf_clearance 可能刚签发，刷新页面会带过去）
+            # _cf_timeout 还在 CF 挑战页：reload 一次（cf_clearance 可能刚签发，刷新页面会带过去）
             if attempt < _retries:
-                print(f"[!] CF 60s 没解开，reload 重试 ({attempt + 1}/{_retries})...", file=sys.stderr)
+                print(f"[!] CF {_cf_timeout}s 没解开，reload 重试 ({attempt + 1}/{_retries})...", file=sys.stderr)
                 time.sleep(2)
                 continue
             # 实在不行：截屏 + dump HTML 方便 debug
-            self._dump_debug(full, reason="cf_timeout_60s")
+            self._dump_debug(full, reason=f"cf_timeout_{_cf_timeout}s")
             return _Response(self._page.content())
 
     def _dump_debug(self, url, reason=""):
@@ -254,10 +254,10 @@ class _HybridSession:
             )
         return self._pw._page
 
-    def get(self, url, params=None):
+    def get(self, url, params=None, **_kwargs):
         if self._use_cffi:
             return self._cffi.get(url, params)
-        return self._pw.get(url, params)
+        return self._pw.get(url, params, **_kwargs)
 
     def switch_to_cffi(self):
         """捕获 Playwright 当前的 cookies + UA，构造 _CffiSession 接管后续请求。"""
@@ -475,12 +475,22 @@ def fetch_user_submissions_for_problem(session, username, problem_id):
     """
     out = []
     page = 1
+    # /submissions 那个 CF 节点比 /contest/2564 严很多（60s × 3 = 3 min 解不开，run 27092774087），
+    # 给 180s × 2 = 6 min 一次；第一次拿到 cf_clearance 后剩下的题目就快了。
+    # 总预算：1 × 6 min + 12 × 30s ≈ 12 min（13 道题 + 翻页），在 workflow 15 min 之内。
+    _submissions_cf_timeout = 180
+    _submissions_retries = 2
     while True:
-        resp = session.get(SUBMISSIONS_URL, params={
-            "submitter": username,
-            "problem_id": problem_id,
-            "page": page,
-        })
+        resp = session.get(
+            SUBMISSIONS_URL,
+            params={
+                "submitter": username,
+                "problem_id": problem_id,
+                "page": page,
+            },
+            _cf_timeout=_submissions_cf_timeout,
+            _retries=_submissions_retries,
+        )
         resp.raise_for_status()
         html = resp.text
         _check_cf(html, SUBMISSIONS_URL)
