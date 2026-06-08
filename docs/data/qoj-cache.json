@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "updated_at": "2026-06-08T05:11:31Z",
+  "updated_at": "2026-06-08T07:06:14Z",
   "contests": {
     "2564": {
       "name": "QOJ.ac",
       "start_time": "",
       "duration_hours": 0,
-      "fetched_at": "2026-06-08T05:11:31Z",
+      "fetched_at": "2026-06-08T07:01:41Z",
       "problems": [
         {
           "id": 14450,
@@ -69,9 +69,7 @@
           "title": "挑战凸多边形"
         }
       ],
-      "submissions": {
-        "tarjen": {}
-      },
+      "submissions": {},
       "cf_blocked": true
     }
   }
