@@ -73,12 +73,14 @@ class TestFetchContestMeta(unittest.TestCase):
         self.assertIsNone(start)
         self.assertIsNone(dur)
 
-    def test_cf_challenge_raises_friendly_error(self):
+    def test_cf_challenge_fail_soft(self):
+        # fetch_contest_meta 在 CF 卡住时不再抛——> fail-soft 返回 (None, None)
+        # 上下文：GitHub Actions IP 段可能被 CF 标记，/contests 拿不到时不能整个 import 失败
         s = FakeSession()
         s.responses[qoj_sync.CONTEST_LIST_URL] = "<html>Just a moment... cf-mitigated</html>"
-        with self.assertRaises(RuntimeError) as cm:
-            qoj_sync.fetch_contest_meta(s, "2564")
-        self.assertIn("Cloudflare", str(cm.exception))
+        start, dur = qoj_sync.fetch_contest_meta(s, "2564")
+        self.assertIsNone(start)
+        self.assertIsNone(dur)
 
 
 # ---------------- fetch_contest_page ----------------

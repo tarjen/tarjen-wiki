@@ -427,11 +427,22 @@ def fetch_contest_meta(session, contest_id):
 
     用 page.evaluate 解析 DOM 而不是 regex：HTML 结构可能因时间/页面状态变，
     但语义稳定。失败时把 HTML 写到 docs/data/qoj-debug-list.html 方便排查。
+
+    CF 失败时返回 (None, None) 不抛——> /contests 也可能触发 Turnstile，
+    让 fetch_user_submissions_for_problem 用全标 Ø 兜底，import 还是能完成。
     """
-    resp = session.get(CONTEST_LIST_URL)
-    resp.raise_for_status()
-    html = resp.text
-    _check_cf(html, CONTEST_LIST_URL)
+    try:
+        resp = session.get(CONTEST_LIST_URL)
+        resp.raise_for_status()
+        html = resp.text
+        _check_cf(html, CONTEST_LIST_URL)
+    except RuntimeError as e:
+        msg = str(e)
+        if "Cloudflare" in msg or "Turnstile" in msg or "cf_timeout" in msg:
+            print(f"[!] /contests CF 解不开（{e}），start_time/duration 拿不到；submission 全标 Ø", file=sys.stderr)
+            session._cf_blocked_submissions = True
+            return None, None
+        raise
 
     # 优先：DOM 评估（精确，不受 HTML whitespace/属性顺序影响）
     try:
@@ -539,57 +550,67 @@ def fetch_user_submissions_for_problem(session, username, problem_id):
     - <a class="small">TEXT</a> → 状态文字，映射到 STATUS_TO_CODE
     """
     out = []
-    page = 1
-    # /submissions 那个 CF 节点比 /contest/2564 严很多（60s × 3 = 3 min 解不开，run 27092774087），
-    # 给 180s × 2 = 6 min 一次；第一次拿到 cf_clearance 后剩下的题目就快了。
-    # 总预算：1 × 6 min + 12 × 30s ≈ 12 min（13 道题 + 翻页），在 workflow 15 min 之内。
-    _submissions_cf_timeout = 180
+    # /submissions CF 节点比 /contest/2564 严很多（GitHub Actions IP 段可能被标记），
+    # 60s × 3 都不一定能过 invisible Turnstile（run 27116757934）。给 90s × 2 = 3 min per request；
+    # 解不开就 fail-soft 跳剩下题目，让用户手动填。Turnstile 点击器在前面已经跑过一轮。
+    _submissions_cf_timeout = 90
     _submissions_retries = 2
-    while True:
-        resp = session.get(
-            SUBMISSIONS_URL,
-            params={
-                "submitter": username,
-                "problem_id": problem_id,
-                "page": page,
-            },
-            _cf_timeout=_submissions_cf_timeout,
-            _retries=_submissions_retries,
-        )
-        resp.raise_for_status()
-        html = resp.text
-        _check_cf(html, SUBMISSIONS_URL)
-        rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
-        body_rows = [r for r in rows if '<th' not in r]
-        if not body_rows:
-            break
-        page_has_data = False
-        for row in body_rows:
-            cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
-            if len(cells) < 9:
-                continue
-            result_html = cells[3]
-            time_html = cells[8]
-            score_m = re.search(r'<a class="uoj-score">(\d+)</a>', result_html)
-            small_m = re.search(r'<a class="small">([^<]+)</a>', result_html)
-            if score_m:
-                score = int(score_m.group(1))
-                status = "AC" if score == 100 else f"S{score}"
-            elif small_m:
-                raw = small_m.group(1).strip()
-                status = STATUS_TO_CODE.get(raw, "??")
-            else:
-                continue
-            time_m = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', time_html)
-            t = time_m.group(1) if time_m else ""
-            out.append((status, t))
-            page_has_data = True
-        if not page_has_data or len(body_rows) < 10:
-            break
-        page += 1
-        if page > 50:
-            print(f"[!] problem_id={problem_id} 翻了 50 页，截断", file=sys.stderr)
-            break
+    try:
+        page = 1
+        while True:
+            resp = session.get(
+                SUBMISSIONS_URL,
+                params={
+                    "submitter": username,
+                    "problem_id": problem_id,
+                    "page": page,
+                },
+                _cf_timeout=_submissions_cf_timeout,
+                _retries=_submissions_retries,
+            )
+            resp.raise_for_status()
+            html = resp.text
+            _check_cf(html, SUBMISSIONS_URL)
+            rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
+            body_rows = [r for r in rows if '<th' not in r]
+            if not body_rows:
+                break
+            page_has_data = False
+            for row in body_rows:
+                cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
+                if len(cells) < 9:
+                    continue
+                result_html = cells[3]
+                time_html = cells[8]
+                score_m = re.search(r'<a class="uoj-score">(\d+)</a>', result_html)
+                small_m = re.search(r'<a class="small">([^<]+)</a>', result_html)
+                if score_m:
+                    score = int(score_m.group(1))
+                    status = "AC" if score == 100 else f"S{score}"
+                elif small_m:
+                    raw = small_m.group(1).strip()
+                    status = STATUS_TO_CODE.get(raw, "??")
+                else:
+                    continue
+                time_m = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', time_html)
+                t = time_m.group(1) if time_m else ""
+                out.append((status, t))
+                page_has_data = True
+            if not page_has_data or len(body_rows) < 10:
+                break
+            page += 1
+            if page > 50:
+                print(f"[!] problem_id={problem_id} 翻了 50 页，截断", file=sys.stderr)
+                break
+    except RuntimeError as e:
+        msg = str(e)
+        if "Cloudflare" in msg or "Turnstile" in msg or "cf_timeout" in msg:
+            # CF 把这个 IP 标记了。给剩下的题目也标个 flag，不再浪费时间。
+            # 编辑器拿到 cache 看到 empty submissions 也不会崩（默认全 .）。
+            session._cf_blocked_submissions = True
+            print(f"[!] /submissions CF 解不开（{e}），后面题目跳过；用户需要手动填 O/Ø/!/.", file=sys.stderr)
+            return []
+        raise
     return out
 
 
@@ -706,6 +727,10 @@ def main():
         if not args.no_subs:
             entry["submissions"][username] = {}
             for p in problems:
+                # CF 已经被这个 IP 标记了？别再浪费时间，一道题一道题地 3 分钟试。
+                if getattr(session, "_cf_blocked_submissions", False):
+                    print(f"[*] 跳过 problem {p['letter']}（CF 已 block）", file=sys.stderr)
+                    continue
                 print(f"[*] 拉 submissions problem_id={p['id']} ({p['letter']})", file=sys.stderr)
                 subs = fetch_user_submissions_for_problem(session, username, p["id"])
                 if not subs:
@@ -718,6 +743,9 @@ def main():
                     "in_contest": in_contest,
                     "tried": True,
                 }
+        # CF block 标记：编辑器看到 empty submissions 时知道是 CF 拦了，不是"用户没提交"
+        if getattr(session, "_cf_blocked_submissions", False):
+            entry["cf_blocked"] = True
     finally:
         session.close()
 
