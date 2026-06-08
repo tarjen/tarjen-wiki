@@ -174,7 +174,10 @@ class _CffiSession:
             raise RuntimeError(
                 "缺少 curl_cffi 依赖。CI workflow 应该 pip install curl-cffi。"
             ) from e
-        self._s = cffi.Session(impersonate="chrome120")
+        # 用最新 Chrome 指纹（不指定版本号 → curl_cffi 默认取最新的）。
+        # chrome120 是 2023-11 的，CF 参照早就升级了；旧版会被直接 403 而不是给 challenge 页。
+        # 如果哪天 "chrome" 报错说不支持，再 pin 死到具体的 chrome131/chrome133。
+        self._s = cffi.Session(impersonate="chrome")
         # Playwright context.cookies() 返回 list[dict]，key 是 name/value/domain/path/...
         # domain 加点号让 cf_clearance 跨子域生效；QOJ 全站都在 qoj.ac
         for c in cookies:
@@ -184,6 +187,18 @@ class _CffiSession:
                 path=c.get("path", "/"),
             )
         self._s.headers["User-Agent"] = user_agent
+        # CF 现在查 Sec-Fetch-* 头——curl_cffi impersonate 模板不一定带这些（运行时头，不是 fingerprint）
+        # 浏览器在 document 请求时会发这一组；缺一个就 403
+        self._s.headers.update({
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
+        })
         # 不要走代理；CI 默认不走，我们也不需要
         self._s.proxies = {}
 
@@ -192,6 +207,17 @@ class _CffiSession:
         if params:
             full = url + ('&' if '?' in url else '?') + urlencode(params)
         r = self._s.get(full, timeout=30, allow_redirects=True)
+        # 调试：403 时把 body 写出来，方便看 CF 怎么识破的
+        if r.status_code >= 400:
+            try:
+                from pathlib import Path as _P
+                dbg = _P(f"docs/data/qoj-debug-cffi-{r.status_code}.html")
+                dbg.parent.mkdir(parents=True, exist_ok=True)
+                dbg.write_text(r.text[:4000], encoding="utf-8")
+                print(f"[!] curl_cffi 收到 {r.status_code}，body 前 200 字符：{r.text[:200]!r}", file=sys.stderr)
+                print(f"    debug → {dbg}", file=sys.stderr)
+            except Exception as e:
+                print(f"[!] dump 403 body failed: {e}", file=sys.stderr)
         return _Response(r.text, status=r.status_code)
 
     def close(self):
