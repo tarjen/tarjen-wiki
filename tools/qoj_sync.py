@@ -4,8 +4,15 @@
 写 docs/data/qoj-cache.json：保持已有 contest 条目不变，更新/追加当前 contest。
 CI 提交后 main 触发 deploy；浏览器下次加载编辑器时轮询到这个文件的新条目。
 
-CF 拦截：qoj.ac 走 Cloudflare v5 managed JS challenge。curl_cffi 这种"指纹+TLS 伪造"被 403。
-用 Playwright 真 Chromium 跑 JS 验证 → CF 当正常浏览器放行。
+数据流（Playwright 真 Chromium 一次跑完）：
+  1) /contest/{id}              → 比赛名 + 题目列表（id/letter/title）
+  2) /contests                  → 该场比赛的 start_time + duration_hours
+  3) /results/QOJ{id}           → standings 表，挑 username 那一行的 12 题状态
+                                   '+N HH:MM' = AC，'-' = 试过没 AC，'' = 没做
+
+历史：早先用 /submissions 端点 per-problem 翻页；CF 把那个节点卡得很死，GitHub
+Actions IP 段连 Turnstile 都过不去。standings 端点 CF 节点更宽松（2026-06 实测
+能过），一次性拿全 12 题，O(1) 请求而不是 O(12) 翻页。
 
 运行：
     python3 tools/qoj_sync.py 2564 tarjen
@@ -25,7 +32,10 @@ from urllib.parse import urlencode
 
 CONTEST_LIST_URL = "https://qoj.ac/contests"
 CONTEST_PAGE_URL = "https://qoj.ac/contest/{cid}"
-SUBMISSIONS_URL = "https://qoj.ac/submissions"
+# /results/QOJ{cid} 一次性返回 standings 表格（行=用户，列=题，格=+/-/空），
+# 比 /submissions 分页高效得多（一个 contest 一次请求即可）。/contest/{cid}/standings
+# 在 GH Actions IP 段被 CF 卡住，/results/QOJ{cid} 的 CF 节点目前能过。
+STANDINGS_URL = "https://qoj.ac/results/QOJ{cid}"
 CACHE_PATH = Path("docs/data/qoj-cache.json")
 
 
@@ -105,6 +115,14 @@ class _PlaywrightSession:
             full = url + ('&' if '?' in url else '?') + urlencode(params)
         # domcontentloaded 比 load 快；CF challenge 也会触发 load 事件但内容是空壳
         import time
+        # CF 中间态：page 还在 verification 阶段（"Verification successful. Waiting for qoj.ac"），
+        # 标题既不是 "Just a moment..." 也不是 "checking your browser"，但页面还可能 navigation。
+        # "verifying" / "verification successful" / "waiting for" 都视为 CF 等待中。
+        cf_pending_markers = (
+            "just a moment", "checking your browser",
+            "verifying you are human", "verifying",
+            "verification successful", "waiting for",
+        )
         for attempt in range(_retries + 1):
             self._page.goto(full, wait_until="domcontentloaded", timeout=30000)
             # /submissions 触发的不是普通 JS challenge，是 Cloudflare Turnstile（managed）——
@@ -120,8 +138,23 @@ class _PlaywrightSession:
                 except Exception:
                     time.sleep(1)
                     continue
-                if "just a moment" not in title and "checking your browser" not in title:
-                    return _Response(self._page.content())
+                if not any(m in title for m in cf_pending_markers):
+                    # 真页面：等 load_state 避免 content() 报"page is navigating"
+                    try:
+                        self._page.wait_for_load_state("load", timeout=8000)
+                    except Exception:
+                        pass
+                    try:
+                        return _Response(self._page.content())
+                    except Exception as e:
+                        # content() 在 navigation 中失败：等一下再读
+                        print(f"[!] content() 失败（{e}），1s 后重试", file=sys.stderr)
+                        time.sleep(1)
+                        try:
+                            return _Response(self._page.content())
+                        except Exception:
+                            pass
+                        continue
                 time.sleep(1)
             # _cf_timeout 还在 CF 挑战页：reload 一次（cf_clearance 可能刚签发，刷新页面会带过去）
             if attempt < _retries:
@@ -222,143 +255,17 @@ class _PlaywrightSession:
 
 
 class _CffiSession:
-    """curl_cffi 模拟 Chrome TLS 指纹 + JA3 签名，让 cf_clearance cookie 继续有效。
-
-    Playwright 解开 CF 后，cf_clearance 会被绑到 (IP, UA, TLS 指纹)。
-    用 curl_cffi impersonate="chrome120" 伪造同样的 TLS 指纹，cf_clearance 还能用，
-    之后每个 /submissions 请求几百 ms 就回来，不用每次都跑 CF JS challenge。
-
-    复用 Playwright 拿到的所有 cookies（uoj_remember_token + uoj_remember_token_check
-    + UOJSESSID + cf_clearance），用 User-Agent 保持一致。
+    """保留为占位：早先用来在 CF 解开前用 curl_cffi 跑 /submissions，cf_clearance 的 TLS
+    指纹绑定 + CF 服务器端 bot 检测让这条路彻底失败（run 27115687244、27116033698）。
+    现在 /results/QOJ{cid} 一个端点搞定，curl_cffi 不再需要。
     """
-
-    def __init__(self, cookies, user_agent):
-        try:
-            from curl_cffi import requests as cffi
-        except ImportError as e:
-            raise RuntimeError(
-                "缺少 curl_cffi 依赖。CI workflow 应该 pip install curl-cffi。"
-            ) from e
-        # 用最新 Chrome 指纹（不指定版本号 → curl_cffi 默认取最新的）。
-        # chrome120 是 2023-11 的，CF 参照早就升级了；旧版会被直接 403 而不是给 challenge 页。
-        # 如果哪天 "chrome" 报错说不支持，再 pin 死到具体的 chrome131/chrome133。
-        self._s = cffi.Session(impersonate="chrome")
-        # Playwright context.cookies() 返回 list[dict]，key 是 name/value/domain/path/...
-        # domain 加点号让 cf_clearance 跨子域生效；QOJ 全站都在 qoj.ac
-        for c in cookies:
-            self._s.cookies.set(
-                c["name"], c["value"],
-                domain=c.get("domain", ".qoj.ac"),
-                path=c.get("path", "/"),
-            )
-        self._s.headers["User-Agent"] = user_agent
-        # CF 现在查 Sec-Fetch-* 头——curl_cffi impersonate 模板不一定带这些（运行时头，不是 fingerprint）
-        # 浏览器在 document 请求时会发这一组；缺一个就 403
-        self._s.headers.update({
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "same-origin",
-            "Sec-Fetch-User": "?1",
-            "Upgrade-Insecure-Requests": "1",
-        })
-        # 不要走代理；CI 默认不走，我们也不需要
-        self._s.proxies = {}
-
-    def get(self, url, params=None):
-        full = url
-        if params:
-            full = url + ('&' if '?' in url else '?') + urlencode(params)
-        r = self._s.get(full, timeout=30, allow_redirects=True)
-        # 调试：403 时把 body 写出来，方便看 CF 怎么识破的
-        if r.status_code >= 400:
-            try:
-                from pathlib import Path as _P
-                dbg = _P(f"docs/data/qoj-debug-cffi-{r.status_code}.html")
-                dbg.parent.mkdir(parents=True, exist_ok=True)
-                dbg.write_text(r.text[:4000], encoding="utf-8")
-                print(f"[!] curl_cffi 收到 {r.status_code}，body 前 200 字符：{r.text[:200]!r}", file=sys.stderr)
-                print(f"    debug → {dbg}", file=sys.stderr)
-            except Exception as e:
-                print(f"[!] dump 403 body failed: {e}", file=sys.stderr)
-        return _Response(r.text, status=r.status_code)
-
-    def close(self):
-        try:
-            self._s.close()
-        except Exception:
-            pass
-
-
-class _HybridSession:
-    """Playwright 跑前几个请求（解 CF + 拿 cf_clearance）→ 切到 curl_cffi 跑剩下的。
-
-    为什么不全程 Playwright：/submissions 那个 CF 节点比 /contest/2564 严很多，
-    Playwright 60s × 3 次都解不开。Playwright + curl_cffi 组合是最稳的：
-    - Playwright 拿 cf_clearance（带正确 IP/UA/TLS 指纹）
-    - curl_cffi 用同样的 UA + impersonate 同样的 TLS 指纹，cf_clearance 一直有效
-
-    fetch_contest_meta 还在 Playwright 阶段（用 page.evaluate 解析 DOM），
-    切到 curl_cffi 之前必须先跑完 fetch_contest_meta。
-    """
-
-    def __init__(self, auth_cookie=None):
-        self._pw = _PlaywrightSession(auth_cookie=auth_cookie)
-        self._cffi = None
-        self._use_cffi = False
-
-    @property
-    def _page(self):
-        """暴露给 fetch_contest_meta 的 page.evaluate 用。切到 curl_cffi 后会抛错。"""
-        if self._use_cffi:
-            raise RuntimeError(
-                "session 已经在 curl_cffi 模式，page.evaluate 不可用；"
-                "fetch_contest_meta 必须在 switch_to_cffi() 之前调用"
-            )
-        return self._pw._page
-
-    def get(self, url, params=None, **_kwargs):
-        if self._use_cffi:
-            return self._cffi.get(url, params)
-        return self._pw.get(url, params, **_kwargs)
-
-    def switch_to_cffi(self):
-        """捕获 Playwright 当前的 cookies + UA，构造 _CffiSession 接管后续请求。"""
-        if self._use_cffi:
-            return
-        cookies = self._pw._context.cookies()
-        try:
-            ua = self._pw._context.user_agent
-        except Exception:
-            ua = (
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-        self._cffi = _CffiSession(cookies=cookies, user_agent=ua)
-        self._use_cffi = True
-        cf_present = any(c.get("name") == "cf_clearance" for c in cookies)
-        names = [c.get("name") for c in cookies]
-        print(
-            f"[*] 切换到 curl_cffi：{len(cookies)} cookies "
-            f"(cf_clearance={'✓' if cf_present else '✗'}, names={names})",
-            file=sys.stderr,
-        )
-
-    def close(self):
-        try:
-            if self._cffi:
-                self._cffi.close()
-        finally:
-            self._pw.close()
 
 
 def _open_session():
-    """打开一个 fetcher session。失败抛 RuntimeError 让 CI 重试更明显。"""
+    """打开一个 fetcher session（就是 _PlaywrightSession）。失败抛 RuntimeError。"""
     cookie = os.environ.get("QOJ_AUTH_COOKIE", "").strip()
     try:
-        return _HybridSession(auth_cookie=cookie or None)
+        return _PlaywrightSession(auth_cookie=cookie or None)
     except ImportError as e:
         raise RuntimeError(
             "缺少 playwright 依赖。CI workflow 应该 pip install playwright + playwright install chromium。"
@@ -392,22 +299,6 @@ def _parse_cookie_kv(raw, default_name="uoj_remember_token"):
         n, _, v = s.partition("=")
         return [(n.strip(), v.strip())]
     return [(default_name, s)]
-
-
-# UOJ 在 <a class="small">RESULT_ERROR</a> 里写的原文
-# Source: judger/uoj_judger/include/uoj_run.h:169-189
-STATUS_TO_CODE = {
-    "Accepted": "AC",
-    "Wrong Answer": "WA",
-    "Runtime Error": "RE",
-    "Time Limit Exceeded": "TLE",
-    "Memory Limit Exceeded": "MLE",
-    "Output Limit Exceeded": "OLE",
-    "Compile Error": "CE",
-    "Judgment Failed": "SE",
-    "Dangerous Syscalls": "DGS",
-    "Unknown Result": "??",
-}
 
 
 # ---------------- HTTP helpers ----------------
@@ -541,90 +432,128 @@ def fetch_contest_page(session, contest_id):
     return name, problems
 
 
-def fetch_user_submissions_for_problem(session, username, problem_id):
-    """拉指定 user+problem 的全部 submissions（分页）。
+def fetch_standings_for_user(session, contest_id, username):
+    """拉 /results/QOJ{cid}，从 standings 表里挑出 username 那一行的 12 题状态。
 
-    返回 [(status_code, "YYYY-MM-DD HH:MM:SS"), ...]，按 QOJ 默认顺序（最新在前）。
-    状态判定：
-    - <a class="uoj-score">N</a> → 数字得分；100 = AC，其它记 S{N}
-    - <a class="small">TEXT</a> → 状态文字，映射到 STATUS_TO_CODE
+    Returns:
+      list[{'letter', 'status', 'time'}] —— 12 个元素按字母顺序，status 是 '+N'/'-N'/'+'/'-'/''；
+      time 是 'HH:MM'（从比赛开始的偏移），AC 才会有；或者 None（用户不在榜里）。
+
+    Cell 格式（实采 /results/QOJ2564，row 58 = tarjen）：
+      '+3 0:08'   → AC，3 次 WA 后通过，赛中 0:08 过题
+      '+ 0:52'    → AC，0 次 WA（一发过），赛中 0:52 过题
+      '-6 4:59'   → 试过 6 次，最后一次 4:59，没过
+      '-'         → 试过，没过
+      '' (空)      → 没做
+
+    注意：standings 不告诉具体失败原因（WA / TLE / RE 都统称 '-'）。
+    对应到我们的 O/Ø/!/. 表：+ → O/Ø，- → !，空 → .。
+
+    CF 拦了：返回 None 并设 session._cf_blocked_submissions = True。
+    登录重定向：抛 RuntimeError（让上层跟 /contest/{id} 一样显式报 cookie 过期）。
     """
-    out = []
-    # /submissions CF 节点比 /contest/2564 严很多（GitHub Actions IP 段可能被标记），
-    # 60s × 3 都不一定能过 invisible Turnstile（run 27116757934）。给 90s × 2 = 3 min per request；
-    # 解不开就 fail-soft 跳剩下题目，让用户手动填。Turnstile 点击器在前面已经跑过一轮。
-    _submissions_cf_timeout = 90
-    _submissions_retries = 2
+    url = STANDINGS_URL.format(cid=contest_id)
     try:
-        page = 1
-        while True:
-            resp = session.get(
-                SUBMISSIONS_URL,
-                params={
-                    "submitter": username,
-                    "problem_id": problem_id,
-                    "page": page,
-                },
-                _cf_timeout=_submissions_cf_timeout,
-                _retries=_submissions_retries,
-            )
-            resp.raise_for_status()
-            html = resp.text
-            _check_cf(html, SUBMISSIONS_URL)
-            rows = re.findall(r'<tr[^>]*>(.*?)</tr>', html, re.DOTALL)
-            body_rows = [r for r in rows if '<th' not in r]
-            if not body_rows:
-                break
-            page_has_data = False
-            for row in body_rows:
-                cells = re.findall(r'<td[^>]*>(.*?)</td>', row, re.DOTALL)
-                if len(cells) < 9:
-                    continue
-                result_html = cells[3]
-                time_html = cells[8]
-                score_m = re.search(r'<a class="uoj-score">(\d+)</a>', result_html)
-                small_m = re.search(r'<a class="small">([^<]+)</a>', result_html)
-                if score_m:
-                    score = int(score_m.group(1))
-                    status = "AC" if score == 100 else f"S{score}"
-                elif small_m:
-                    raw = small_m.group(1).strip()
-                    status = STATUS_TO_CODE.get(raw, "??")
-                else:
-                    continue
-                time_m = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', time_html)
-                t = time_m.group(1) if time_m else ""
-                out.append((status, t))
-                page_has_data = True
-            if not page_has_data or len(body_rows) < 10:
-                break
-            page += 1
-            if page > 50:
-                print(f"[!] problem_id={problem_id} 翻了 50 页，截断", file=sys.stderr)
-                break
+        resp = session.get(url, _cf_timeout=120, _retries=1)
+        resp.raise_for_status()
+        html = resp.text
+        _check_cf(html, url)
     except RuntimeError as e:
         msg = str(e)
         if "Cloudflare" in msg or "Turnstile" in msg or "cf_timeout" in msg:
-            # CF 把这个 IP 标记了。给剩下的题目也标个 flag，不再浪费时间。
-            # 编辑器拿到 cache 看到 empty submissions 也不会崩（默认全 .）。
+            print(f"[!] /results CF 解不开（{e}），per-problem 状态拿不到", file=sys.stderr)
             session._cf_blocked_submissions = True
-            print(f"[!] /submissions CF 解不开（{e}），后面题目跳过；用户需要手动填 O/Ø/!/.", file=sys.stderr)
-            return []
+            return None
         raise
-    return out
+
+    # 跟 fetch_contest_page 一样：登录过期 QOJ 把 standings 也重定向到 /login
+    if re.search(r'<title>\s*Login\s*-\s*QOJ\.ac\s*</title>', html, re.IGNORECASE):
+        raise RuntimeError(
+            f"QOJ 把 {url} 重定向到登录页。Cookie 可能过期/复制错。"
+            "QOJ 用的是 uoj_remember_token + uoj_remember_token_check + UOJSESSID 这三件套，"
+            "重新去 F12 → Network → Request Headers → Cookie 整行复制（不要只粘一个）。"
+        )
+
+    # /results 页 body 是 XHR 拉数据 + JS 渲染；用 page.evaluate 比 regex 解析 400KB HTML
+    # 稳得多。Cell 格式（实采）：
+    #   <center>+3<br><font size="1">0:08</font></center>   AC, 3 WAs, 0:08
+    #   <center>+<br><font size="1">0:52</font></center>    AC, 0 WAs
+    #   <center>-<br></center>                              tried, no AC
+    #   <center><br></center>                               not tried
+    try:
+        result = session._page.evaluate("""
+            (username) => {
+                const rows = document.querySelectorAll('table tr');
+                if (!rows.length) return { error: 'no_table' };
+                // header: [Rank, Username, A..L, Solved, Penalty, Dirt]
+                const ths = rows[0].querySelectorAll('th');
+                const letters = [];
+                for (let i = 2; i < ths.length - 3; i++) {
+                    // 头部 cell 是 "A425/506" 这种：letter + solved/total 计数
+                    const txt = ths[i].textContent.trim();
+                    letters.push(txt.charAt(0));
+                }
+                for (const row of rows) {
+                    const tds = row.querySelectorAll('td');
+                    if (tds.length < 5) continue;
+                    // 精确匹配 username（团队名 "Foo (Members)" 不会撞单人 username）
+                    if (tds[1].textContent.trim() !== username) continue;
+                    const cells = [];
+                    for (let i = 2; i < tds.length - 3; i++) {
+                        const center = tds[i].querySelector('center');
+                        let status = '';
+                        let time = '';
+                        if (center) {
+                            // firstChild 是 '+3' / '+' / '-' / '' (text node) 或 <br>
+                            const fc = center.firstChild;
+                            if (fc && fc.nodeType === 3) status = fc.textContent.trim();
+                            const f = center.querySelector('font');
+                            if (f) time = f.textContent.trim();
+                        }
+                        cells.push({ letter: letters[i-2], status, time });
+                    }
+                    return { letters, cells };
+                }
+                return { letters, cells: null };  // user not in standings
+            }
+        """, username)
+    except Exception as e:
+        print(f"[!] standings DOM evaluate failed: {e}", file=sys.stderr)
+        return None
+
+    if not result or not result.get("cells"):
+        return None
+    return result["cells"]
+
+
+def _parse_relative_time(time_str, start_time):
+    """把 '0:08' / '1:34:05' (从比赛开始的偏移) 转成绝对时间戳 'YYYY-MM-DD HH:MM:SS'。
+
+    QOJ standings 格式：'H:MM' = hours:minutes（如 '0:08' = 8 分钟，'1:34' = 1h34m）；
+    偶尔 'H:MM:SS' = hours:minutes:seconds（实际未见过，留兼容）。
+    start_time 缺失或解析失败返回 ''。
+    """
+    if not time_str or start_time is None:
+        return ""
+    from datetime import timedelta
+    s = time_str.strip()
+    parts = s.split(":")
+    try:
+        if len(parts) == 2:
+            hours, minutes = int(parts[0]), int(parts[1])
+            offset = timedelta(hours=hours, minutes=minutes)
+        elif len(parts) == 3:
+            hours, minutes, seconds = int(parts[0]), int(parts[1]), int(parts[2])
+            offset = timedelta(hours=hours, minutes=minutes, seconds=seconds)
+        else:
+            return ""
+        ac_time = start_time + offset
+        return ac_time.strftime("%Y-%m-%d %H:%M:%S")
+    except (ValueError, IndexError):
+        return ""
 
 
 # ---------------- pure logic ----------------
-
-def best_status(subs):
-    """从一组 (status, time) 里挑最优。返回 ("AC", earliest_ac_time) 或 (first_error, "") 或 None。"""
-    if not subs:
-        return None
-    acs = [t for s, t in subs if s == "AC"]
-    if acs:
-        return ("AC", min(acs))
-    return (subs[0][0], "")
-
 
 def is_during_contest(ac_time_str, start_time, duration_hours):
     """判断 ac_time_str 是否在 [start_time, start_time + duration_hours] 区间内。"""
@@ -710,9 +639,8 @@ def main():
         # 2.5) 不再切到 curl_cffi：CF 把 cf_clearance 绑到 TLS 指纹（JA3/JA4），
         # curl_cffi 的 chrome impersonation 跟 Playwright 的 Chromium 不完全一致，
         # CF 直接给 403 + 重新发 challenge，curl_cffi 跑不了 JS 永远解不开（run 27115687244）。
-        # 全程 Playwright：给 /submissions 第一次 180s × 2 = 6 min 解 challenge，
-        # 拿到 /submissions-specific cf_clearance 后剩下的题秒回。
-        # （_HybridSession.switch_to_cffi 保留为备用，如果哪天 CF 升级了 fingerprint 检测再说。）
+        # 全程 Playwright：/results/QOJ{cid} 一个端点一次性拿 standings 12 题状态，
+        # 不再 per-problem 翻 /submissions（CF 严卡那个节点）。
 
         entry = {
             "name": name,
@@ -723,29 +651,43 @@ def main():
             "submissions": {},
         }
 
-        # 3) 用户每题状态
+        # 3) 用户每题状态（一次性从 standings 拿）
         if not args.no_subs:
-            entry["submissions"][username] = {}
-            for p in problems:
-                # CF 已经被这个 IP 标记了？别再浪费时间，一道题一道题地 3 分钟试。
+            print(f"[*] 拉 {STANDINGS_URL.format(cid=contest_id)}（一次性拿 12 题状态）", file=sys.stderr)
+            cells = fetch_standings_for_user(session, contest_id, username)
+            if cells is None:
+                # CF 拦了：cache entry 加 cf_blocked=true，编辑器知道是拿不到不是没做
                 if getattr(session, "_cf_blocked_submissions", False):
-                    print(f"[*] 跳过 problem {p['letter']}（CF 已 block）", file=sys.stderr)
-                    continue
-                print(f"[*] 拉 submissions problem_id={p['id']} ({p['letter']})", file=sys.stderr)
-                subs = fetch_user_submissions_for_problem(session, username, p["id"])
-                if not subs:
-                    continue
-                status, ac_at = best_status(subs)
-                in_contest = is_during_contest(ac_at, start_time, duration_hours) if status == "AC" else False
-                entry["submissions"][username][str(p["id"])] = {
-                    "status": status,
-                    "ac_at": ac_at,
-                    "in_contest": in_contest,
-                    "tried": True,
-                }
-        # CF block 标记：编辑器看到 empty submissions 时知道是 CF 拦了，不是"用户没提交"
-        if getattr(session, "_cf_blocked_submissions", False):
-            entry["cf_blocked"] = True
+                    entry["cf_blocked"] = True
+                # cells=None 也可能是用户没打这场比赛（不在榜里）——编辑器按全 . 处理
+            else:
+                # 用 problem letter 把 standings cell 关联到 problem id
+                by_letter = {c["letter"]: c for c in cells}
+                entry["submissions"][username] = {}
+                for p in problems:
+                    cell = by_letter.get(p["letter"])
+                    if not cell:
+                        continue
+                    s = cell["status"]
+                    if s.startswith("+"):
+                        # AC：从 contest start 加 cell.time 偏移得到绝对时间
+                        ac_at = _parse_relative_time(cell["time"], start_time)
+                        in_contest = is_during_contest(ac_at, start_time, duration_hours) if ac_at else False
+                        entry["submissions"][username][str(p["id"])] = {
+                            "status": "AC",
+                            "ac_at": ac_at,
+                            "in_contest": in_contest,
+                            "tried": True,
+                        }
+                    elif s.startswith("-"):
+                        # 试过没过（具体 WA / TLE / RE / ... 不知道 → 一律标 '!'）
+                        entry["submissions"][username][str(p["id"])] = {
+                            "status": "WA",  # 编辑器 qojStatusToCell 把任何非 AC 都映射到 '!'
+                            "ac_at": "",
+                            "in_contest": False,
+                            "tried": True,
+                        }
+                    # else: 空 cell → 用户没做，不写 entry（编辑器按 . 处理）
     finally:
         session.close()
 

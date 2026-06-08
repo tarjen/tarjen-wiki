@@ -46,10 +46,25 @@ class FakeResp:
             raise RuntimeError(f"HTTP {self.status}")
 
 
+class FakePage:
+    """fetch_standings_for_user 用 page.evaluate() 拿 standings JSON-like 数据。
+    测试里直接 .evaluate_result = {...} 模拟即可。"""
+
+    def __init__(self):
+        self.evaluate_result = None
+        self.evaluate_calls = []
+
+    def evaluate(self, js, *args):
+        self.evaluate_calls.append((js, args))
+        return self.evaluate_result
+
+
 class FakeSession:
     def __init__(self):
         self.calls = []
         self.responses = {}  # url → text
+        self._page = FakePage()
+        self._cf_blocked_submissions = False
 
     def get(self, url, params=None, **kwargs):
         # 接受 _cf_timeout / _retries 等 kwargs（real session 才有）—— 测试用不到，吞掉即可
@@ -127,106 +142,158 @@ class TestFetchContestPage(unittest.TestCase):
         self.assertIn("uoj_remember_token", str(cm.exception))
 
 
-# ---------------- fetch_user_submissions_for_problem ----------------
+# ---------------- fetch_standings_for_user ----------------
+#
+# fetch_standings_for_user 用 page.evaluate() 解析 DOM（不解析 400KB 的 regex）。
+# 测试里直接设 FakePage.evaluate_result 模拟 DOM 评估结果。
+# 数据形态（跟 qoj_sync.py 里 page.evaluate 那段 JS 同步）：
+#   {"letters": ["A", "B", ...], "cells": [{"letter", "status", "time"}, ...]}
+# 0 cells = 用户不在榜里。
 
-def _sub_row(result_inner, time_str="2025-11-30 14:32:00"):
-    """拼一行 <tr>，result_inner 是 Result 单元格的 HTML 内部，时间是 Submit Time 单元格。"""
-    return (
-        f'<tr>'
-        f'<td><a href="/submission/12345">#12345</a></td>'
-        f'<td><a href="/contest/2564/problem/18314">#18314</a></td>'
-        f'<td><a href="/user/profile/tarjen">tarjen</a></td>'
-        f'<td>{result_inner}</td>'
-        f'<td>123ms</td>'
-        f'<td>4567kb</td>'
-        f'<td>C++17</td>'
-        f'<td>1.2kb</td>'
-        f'<td><small>{time_str}</small></td>'
-        f'<td><small>{time_str}</small></td>'
-        f'</tr>'
-    )
+STANDINGS_USER_ROW_HTML = """
+<html><body>
+  <table>
+    <tr>
+      <th>Rank.</th><th>Username</th>
+      <th>A425/506</th><th>B265/711</th><th>C391/1211</th>
+      <th>D72/159</th><th>E131/498</th><th>F31/120</th>
+    </tr>
+    <tr>
+      <td>1</td><td>winner (Foo, Bar)</td>
+      <td><center>+<br><font size="1">0:02</font></center></td>
+      <td><center>+<br><font size="1">0:12</font></center></td>
+      <td><center>+1<br><font size="1">0:26</font></center></td>
+      <td><center>+<br><font size="1">0:33</font></center></td>
+      <td><center>-<br></center></td>
+      <td><center>-6<br><font size="1">2:14</font></center></td>
+    </tr>
+    <tr>
+      <td>58</td><td>tarjen</td>
+      <td><center>+3<br><font size="1">0:08</font></center></td>
+      <td><center>+<br><font size="1">0:52</font></center></td>
+      <td><center>+<br><font size="1">0:57</font></center></td>
+      <td><center>+3<br><font size="1">1:13</font></center></td>
+      <td><center>+1<br><font size="1">0:46</font></center></td>
+      <td><center>-<br></center></td>
+    </tr>
+  </table>
+</body></html>
+"""
 
 
-def _submissions_html(rows_html):
-    return f'<html><body><table><thead><tr><th>ID</th></tr></thead><tbody>{rows_html}</tbody></table></body></html>'
-
-
-class TestFetchUserSubmissions(unittest.TestCase):
-    def _run(self, rows):
+class TestFetchStandings(unittest.TestCase):
+    def _run(self, page_result):
         s = FakeSession()
-        s.responses[qoj_sync.SUBMISSIONS_URL] = _submissions_html(rows)
-        return qoj_sync.fetch_user_submissions_for_problem(s, "tarjen", 18314)
+        s.responses[qoj_sync.STANDINGS_URL.format(cid="2564")] = STANDINGS_USER_ROW_HTML
+        s._page.evaluate_result = page_result
+        return qoj_sync.fetch_standings_for_user(s, "2564", "tarjen")
 
-    def test_accepted_score_100(self):
-        rows = _sub_row('<a class="uoj-score">100</a>')
-        out = self._run(rows)
-        self.assertEqual(out, [("AC", "2025-11-30 14:32:00")])
+    def test_finds_tarjen_with_mixed_results(self):
+        # 模拟 DOM 评估结果：tarjen 那一行 6 个 cell (A-F)
+        page_result = {
+            "letters": ["A", "B", "C", "D", "E", "F"],
+            "cells": [
+                {"letter": "A", "status": "+3", "time": "0:08"},
+                {"letter": "B", "status": "+", "time": "0:52"},
+                {"letter": "C", "status": "+", "time": "0:57"},
+                {"letter": "D", "status": "+3", "time": "1:13"},
+                {"letter": "E", "status": "+1", "time": "0:46"},
+                {"letter": "F", "status": "-", "time": ""},
+            ],
+        }
+        out = self._run(page_result)
+        self.assertEqual(len(out), 6)
+        self.assertEqual(out[0], {"letter": "A", "status": "+3", "time": "0:08"})
+        self.assertEqual(out[5], {"letter": "F", "status": "-", "time": ""})
 
-    def test_partial_score_mapped_to_SN(self):
-        rows = _sub_row('<a class="uoj-score">40</a>')
-        out = self._run(rows)
-        self.assertEqual(out, [("S40", "2025-11-30 14:32:00")])
+    def test_user_not_in_standings_returns_none(self):
+        # page.evaluate 返回 cells=null（用户不在榜里——没打这场比赛）
+        page_result = {"letters": ["A", "B"], "cells": None}
+        out = self._run(page_result)
+        self.assertIsNone(out)
 
-    def test_wa_string_mapped(self):
-        rows = _sub_row('<a class="small">Wrong Answer</a>')
-        out = self._run(rows)
-        self.assertEqual(out, [("WA", "2025-11-30 14:32:00")])
+    def test_no_table_returns_none(self):
+        page_result = {"error": "no_table"}
+        out = self._run(page_result)
+        self.assertIsNone(out)
 
-    def test_ce_string_mapped(self):
-        rows = _sub_row('<a class="small">Compile Error</a>')
-        out = self._run(rows)
-        self.assertEqual(out, [("CE", "2025-11-30 14:32:00")])
-
-    def test_unknown_status_mapped_to_double_question(self):
-        rows = _sub_row('<a class="small">Banana Split</a>')
-        out = self._run(rows)
-        self.assertEqual(out, [("??", "2025-11-30 14:32:00")])
-
-    def test_multiple_subs_returned_in_order(self):
-        # QOJ 列表是新的在前；脚本原样返回，调用方自己取 min(ac)
-        rows = (
-            _sub_row('<a class="small">Wrong Answer</a>', "2025-11-30 14:00:00")
-            + _sub_row('<a class="uoj-score">100</a>', "2025-11-30 14:30:00")
+    def test_cf_challenge_fail_soft(self):
+        # /results HTML 是 CF 挑战页 → 抛 RuntimeError 走 fail-soft 分支
+        s = FakeSession()
+        s.responses[qoj_sync.STANDINGS_URL.format(cid="2564")] = (
+            "<html>Just a moment... cf-mitigated</html>"
         )
-        out = self._run(rows)
-        self.assertEqual(len(out), 2)
-        self.assertEqual(out[0][0], "WA")
-        self.assertEqual(out[1][0], "AC")
+        out = qoj_sync.fetch_standings_for_user(s, "2564", "tarjen")
+        self.assertIsNone(out)
+        self.assertTrue(s._cf_blocked_submissions)
 
-    def test_no_time_in_cell_skipped(self):
-        # 时间缺失的行应该被跳过
-        bad_row = _sub_row('<a class="uoj-score">100</a>').replace(
-            '<small>2025-11-30 14:32:00</small>', '<small>unknown</small>'
+    def test_login_redirect_raises_friendly_error(self):
+        # cookie 过期：QOJ 把 /results 也重定向到 /login
+        s = FakeSession()
+        s.responses[qoj_sync.STANDINGS_URL.format(cid="2564")] = (
+            "<html><head><title>Login - QOJ.ac</title></head><body>login form</body></html>"
         )
-        out = self._run(bad_row)
-        # 解析时 row 没找到时间，但 status 还在；脚本把 t="" 写入
-        # 我们期望 status 仍被记录，时间空字符串
-        self.assertEqual(out, [("AC", "")])
+        with self.assertRaises(RuntimeError) as cm:
+            qoj_sync.fetch_standings_for_user(s, "2564", "tarjen")
+        self.assertIn("登录", str(cm.exception))
+        self.assertIn("uoj_remember_token", str(cm.exception))
+
+    def test_uses_cf_timeout_and_retries(self):
+        # /results 第一次 120s × 2 = 4 min 解 challenge；确保调用时传对了
+        s = FakeSession()
+        s.responses[qoj_sync.STANDINGS_URL.format(cid="2564")] = STANDINGS_USER_ROW_HTML
+        s._page.evaluate_result = {"letters": ["A"], "cells": []}
+        qoj_sync.fetch_standings_for_user(s, "2564", "tarjen")
+        self.assertEqual(len(s.calls), 1)
+        kw = s.calls[0]["kwargs"]
+        self.assertEqual(kw["_cf_timeout"], 120)
+        self.assertEqual(kw["_retries"], 1)
 
 
-# ---------------- pure logic: best_status / is_during_contest ----------------
+# ---------------- _parse_relative_time ----------------
 
-class TestBestStatus(unittest.TestCase):
-    def test_none_when_empty(self):
-        self.assertIsNone(qoj_sync.best_status([]))
+class TestParseRelativeTime(unittest.TestCase):
+    # 比赛 2025-11-30 09:30:00 UTC 开始
+    start = datetime(2025, 11, 30, 9, 30, 0, tzinfo=timezone.utc)
 
-    def test_ac_returned_with_earliest_time(self):
-        # QOJ 新的在前 → 第一个 AC 是最晚的；best_status 取 min(ac_times)
-        out = qoj_sync.best_status([
-            ("AC", "2025-11-30 14:50:00"),
-            ("AC", "2025-11-30 14:30:00"),
-            ("AC", "2025-11-30 14:40:00"),
-        ])
-        self.assertEqual(out, ("AC", "2025-11-30 14:30:00"))
+    def test_minutes_only(self):
+        # 0:08 → 09:30 + 8min = 09:38
+        self.assertEqual(
+            qoj_sync._parse_relative_time("0:08", self.start),
+            "2025-11-30 09:38:00",
+        )
 
-    def test_no_ac_returns_first_error(self):
-        out = qoj_sync.best_status([("WA", "t1"), ("TLE", "t2")])
-        self.assertEqual(out, ("WA", ""))
+    def test_hours_minutes_seconds(self):
+        # 1:34:05 → 09:30 + 1h34m5s = 11:04:05
+        self.assertEqual(
+            qoj_sync._parse_relative_time("1:34:05", self.start),
+            "2025-11-30 11:04:05",
+        )
 
-    def test_ac_mixed_with_errors_returns_ac(self):
-        out = qoj_sync.best_status([("WA", "t1"), ("AC", "t2"), ("TLE", "t3")])
-        self.assertEqual(out, ("AC", "t2"))
+    def test_over_one_hour(self):
+        # 5h contest；5:00:00 → 14:30
+        self.assertEqual(
+            qoj_sync._parse_relative_time("5:00:00", self.start),
+            "2025-11-30 14:30:00",
+        )
 
+    def test_empty_string(self):
+        self.assertEqual(qoj_sync._parse_relative_time("", self.start), "")
+
+    def test_no_start_time(self):
+        self.assertEqual(qoj_sync._parse_relative_time("0:08", None), "")
+
+    def test_garbage_input(self):
+        self.assertEqual(qoj_sync._parse_relative_time("not a time", self.start), "")
+
+    def test_strips_whitespace(self):
+        self.assertEqual(
+            qoj_sync._parse_relative_time("  0:08  ", self.start),
+            "2025-11-30 09:38:00",
+        )
+
+
+# ---------------- pure logic: is_during_contest ----------------
 
 class TestIsDuringContest(unittest.TestCase):
     # 比赛：2025-11-30 09:30 UTC 开始，持续 5 小时 → 14:30 UTC 结束

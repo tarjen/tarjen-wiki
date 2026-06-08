@@ -40,10 +40,9 @@ jobs:
       - name: Install qoj sync deps
         # playwright = Python 绑定；playwright install chromium 拉 Chromium 浏览器
         # 不装系统依赖（--with-deps）省时间；runner-images 通常够用
-        # curl-cffi：解完 CF 后用 fake Chrome TLS 指纹跑剩下的 /submissions，
-        #            cf_clearance 继续有效，单请求 ~300ms 而非 ~10s
+        # /results/QOJ{cid} 一个端点一次拉 12 题状态，curl_cffi 不再需要
         run: |
-          pip install playwright curl-cffi
+          pip install playwright
           playwright install chromium
 
       - name: Run QOJ sync

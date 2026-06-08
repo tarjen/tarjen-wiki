@@ -90,14 +90,11 @@ QOJ 比赛页和提交页要登录（用 UOJ 的 `uoj_remember_token` + `uoj_rem
 
 **⚠️ 关于 Cloudflare 拦截**（GitHub Actions 已知问题）：
 
-CF 对 GH Actions 这个 IP 段查得严，**/contests 和 /submissions 经常触发 Cloudflare Turnstile 验证**。Playwright headless Chromium 不被 CF 信任（invisible Turnstile 永远不 resolve，reCAPTCHA-style 点 checkbox 也无效）。
+CF 对 GH Actions 这个 IP 段查得严，**/contests 经常触发 Cloudflare Turnstile 验证**。Playwright headless Chromium 偶尔也解不开，**导致拿不到 start_time/duration**——这时所有 AC 全部标 `Ø`（赛后），因为脚本没法判定"赛中"。
 
-我们的处理：**优雅降级**——CF 拦了就不抓 submissions，把 contest 标题 + 12 道题列表 + 时间元信息都写进 cache，每题默认标 `.`（未做），cache entry 加 `cf_blocked: true` 标记。
+> 影响小：12 题的 O/Ø/!/. 仍然全准（从 `/results/QOJ{cid}` 一次性拿），只损失"赛中"判定。可以从比赛页手填比赛日期做"赛中"参考。
 
-- 完整情况：抓到 12 道题 + 每题 AC/WA 时间 + 赛中/赛后判定
-- 降级情况：抓到 12 道题（题目名 + letter）+ `cf_blocked: true` 标记；**O/Ø/!/. 要自己点**
-
-要拿完整 per-problem 状态，最直接的办法：在**自己电脑**跑 Playwright（CF 信任家用 IP 得多），或者手动填格子——题目名和 contest 标题都自动填好，省去 12 行手敲。
+如果哪天 CF 升级把 `/results/QOJ{cid}` 也卡了，**cache entry 会加 `cf_blocked: true` 标记**——编辑器看到后告诉你要手动点格子。
 
 ### 直接改仓库
 
