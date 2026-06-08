@@ -107,6 +107,10 @@ class _PlaywrightSession:
         import time
         for attempt in range(_retries + 1):
             self._page.goto(full, wait_until="domcontentloaded", timeout=30000)
+            # /submissions 触发的不是普通 JS challenge，是 Cloudflare Turnstile（managed）——
+            # 一个 "Verify you are human" 复选框在 iframe 里，CF 不会自动放过。
+            # 点一下让它走完 challenge（run 27116033698 之前 180s × 2 一直在等 auto-resolve，没戏）。
+            self._solve_turnstile_if_present()
             # CF v5 JS challenge：title "Just a moment..." 或 URL 含 /challenge
             # Python 端轮询 page.title() —— 比 wait_for_function 可靠（CDP eval 偶尔丢）
             deadline = time.time() + _cf_timeout
@@ -127,6 +131,51 @@ class _PlaywrightSession:
             # 实在不行：截屏 + dump HTML 方便 debug
             self._dump_debug(full, reason=f"cf_timeout_{_cf_timeout}s")
             return _Response(self._page.content())
+
+    def _solve_turnstile_if_present(self):
+        """如果是 Cloudflare Turnstile challenge（不是普通 JS challenge），点掉复选框。
+
+        CF Turnstile 把整个 widget 放在跨域 iframe 里（src 含 challenges.cloudflare.com/turnstile/...），
+        复选框 input 在那个 iframe 里，class 包含 'cb-lb'。从主页面 frame 列表找就行。
+        点完后等 3s 看 cf-turnstile-response input 有没有被填——填了说明 CF 接受了。
+        """
+        try:
+            # 1) 找 Turnstile response input（CF 总是渲一个 hidden input[name='cf-turnstile-response']）
+            resp_input = self._page.locator("input[name='cf-turnstile-response']")
+            if resp_input.count() == 0:
+                return  # 没有 Turnstile，是普通 JS challenge 或没 challenge
+            # 2) 找 Turnstile iframe
+            for frame in self._page.frames:
+                if "challenges.cloudflare.com" not in (frame.url or ""):
+                    continue
+                # 3) 找 checkbox / label 并点
+                for sel in ("input[type='checkbox']", ".cb-lb", "label", "body"):
+                    try:
+                        el = frame.locator(sel).first
+                        if el.count() == 0:
+                            continue
+                        try:
+                            el.wait_for(state="visible", timeout=3000)
+                        except Exception:
+                            pass
+                        el.click(timeout=2000, force=True)
+                        print(f"[*] 点 Turnstile {sel} → done", file=sys.stderr)
+                        # 给 Turnstile JS 3s 跑验证；看 response input 有没有值
+                        import time as _t
+                        for _ in range(30):
+                            _t.sleep(0.1)
+                            val = resp_input.evaluate("el => el.value")
+                            if val and len(val) > 20:
+                                print(f"[*] Turnstile 已通过（token {len(val)} chars），等页面跳转", file=sys.stderr)
+                                return
+                        print("[!] 点完 3s Turnstile response 还是空，CF 可能没接受", file=sys.stderr)
+                        return
+                    except Exception as e:
+                        print(f"[!] Turnstile 点 {sel} 失败：{e}", file=sys.stderr)
+                        continue
+            print("[!] Turnstile iframe 找到了但没点到 checkbox", file=sys.stderr)
+        except Exception as e:
+            print(f"[!] Turnstile solver 异常：{e}", file=sys.stderr)
 
     def _dump_debug(self, url, reason=""):
         """CF 60s 没解开时，把截图 + HTML 写到 docs/data/，workflow 会传 artifact。"""
