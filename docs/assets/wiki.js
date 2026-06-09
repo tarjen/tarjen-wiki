@@ -7,13 +7,16 @@
 
   // ---- 仓库元信息（要改 owner / repo / branch 只改这一处） ----
   var REPO = { owner: 'tarjen', repo: 'tarjen-wiki', branch: 'main' };
-  // GH PAT：明文存 localStorage（和 QOJ cookie 一个待遇）。
+  // GH PAT：明文存 localStorage。
   // 之前的 v2 加密方案已删：威胁模型（有人能读 localStorage 同时又不能读内存 token）
   // 太弱，且每次开 tab 输密码太烦。不存 repo、不打印到 log、不写 commit message。
   var TOKEN_KEY = 'gh_token_v1';
-  // QOJ 登录 cookie：明文存 localStorage。qoj.ac cookie 7-30 天过期，过期去页面改一次。
+  // QOJ 登录 cookie：3 个分 key 存 localStorage（用户粘 3 个框，编辑器自动拼成
+  // 浏览器能吃的 Cookie: header 格式）。qoj.ac cookie 7-30 天过期，过期去页面改一次。
   // 不加密——比 GH PAT 威力小（只能在 qoj.ac 当你发题），且只是 session 级权限。
-  var QOJ_COOKIE_KEY = 'qoj_cookie_v1';
+  var QOJ_COOKIE_TOK = 'qoj_remember_token';
+  var QOJ_COOKIE_CHK = 'qoj_remember_token_checksum';
+  var QOJ_COOKIE_SES = 'qoj_UOJSESSID';
   var API_BASE = 'https://api.github.com';
   var RAW_BASE = 'https://raw.githubusercontent.com';
 
@@ -32,14 +35,28 @@
     try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
   }
 
-  // ---- QOJ cookie（明文 localStorage） ----
+  // ---- QOJ cookie（3 个分 key，读时拼成 Cookie: header 字符串） ----
   function getQojCookie() {
-    try { return localStorage.getItem(QOJ_COOKIE_KEY) || ''; } catch (e) { return ''; }
-  }
-  function setQojCookie(v) {
     try {
-      if (v) localStorage.setItem(QOJ_COOKIE_KEY, v);
-      else localStorage.removeItem(QOJ_COOKIE_KEY);
+      var t = localStorage.getItem(QOJ_COOKIE_TOK);
+      var c = localStorage.getItem(QOJ_COOKIE_CHK);
+      var s = localStorage.getItem(QOJ_COOKIE_SES);
+      if (!t || !c || !s) return '';
+      return 'uoj_remember_token=' + t + ';uoj_remember_token_checksum=' + c + ';UOJSESSID=' + s;
+    } catch (e) { return ''; }
+  }
+  // parts = { token, checksum, session }，任一空就视作全清。
+  function setQojCookie(parts) {
+    try {
+      if (parts && parts.token && parts.checksum && parts.session) {
+        localStorage.setItem(QOJ_COOKIE_TOK, parts.token);
+        localStorage.setItem(QOJ_COOKIE_CHK, parts.checksum);
+        localStorage.setItem(QOJ_COOKIE_SES, parts.session);
+      } else {
+        localStorage.removeItem(QOJ_COOKIE_TOK);
+        localStorage.removeItem(QOJ_COOKIE_CHK);
+        localStorage.removeItem(QOJ_COOKIE_SES);
+      }
     } catch (e) {}
   }
 
@@ -165,39 +182,55 @@
     refresh();
   }
 
-  // ---- QOJ cookie UI（独立 details 块，明文存 localStorage） ----
-  // 块内 ID：qoj-cookie (input)、btn-save-qoj-cookie、btn-clear-qoj-cookie、qoj-cookie-status (span)。
+  // ---- QOJ cookie UI：3 个分输入框，编辑器自动拼成 Cookie: header 字符串 ----
+  // 块内 ID：qoj-cookie-token、qoj-cookie-checksum、qoj-cookie-session（3 个 input）、
+  // btn-save-qoj-cookie、btn-clear-qoj-cookie、qoj-cookie-status（span）。
   // 任一缺失静默跳过。
   function wireQojCookieUI() {
-    var inp = document.getElementById('qoj-cookie');
+    var inpT = document.getElementById('qoj-cookie-token');
+    var inpC = document.getElementById('qoj-cookie-checksum');
+    var inpS = document.getElementById('qoj-cookie-session');
     var btnSv = document.getElementById('btn-save-qoj-cookie');
     var btnCl = document.getElementById('btn-clear-qoj-cookie');
     var st = document.getElementById('qoj-cookie-status');
-    if (!inp || !btnSv) return;
+    if (!inpT || !inpC || !inpS || !btnSv) return;
+
+    function readPart(key) {
+      try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
+    }
 
     function refresh() {
-      var v = getQojCookie();
-      if (v) {
-        if (st) st.textContent = '✓ 已配置（' + v.length + ' 字符）';
-        if (btnCl) btnCl.style.display = '';
-        if (inp) inp.placeholder = '已存（重新粘可覆盖）';
-      } else {
-        if (st) st.textContent = '未配置';
+      var t = readPart(QOJ_COOKIE_TOK);
+      var c = readPart(QOJ_COOKIE_CHK);
+      var s = readPart(QOJ_COOKIE_SES);
+      var n = (t ? 1 : 0) + (c ? 1 : 0) + (s ? 1 : 0);
+      if (n === 0) {
+        if (st) st.textContent = '0/3';
         if (btnCl) btnCl.style.display = 'none';
-        if (inp) inp.placeholder = 'uoj_remember_token=...;uoj_remember_token_checksum=...;UOJSESSID=...';
+        if (btnSv) btnSv.disabled = false;
+      } else if (n === 3) {
+        if (st) st.textContent = '✓ 3/3 已配（' + t.length + '+' + c.length + '+' + s.length + ' 字符）';
+        if (btnCl) btnCl.style.display = '';
+        if (btnSv) btnSv.disabled = false;
+      } else {
+        if (st) st.textContent = n + '/3（3 个都填了才能保存）';
+        if (btnCl) btnCl.style.display = '';
+        if (btnSv) btnSv.disabled = true;
       }
     }
     btnSv.addEventListener('click', function () {
-      var v = (inp.value || '').trim();
-      if (!v) { toast('先粘 cookie', true); return; }
-      setQojCookie(v);
-      inp.value = '';
+      var t = (inpT.value || '').trim();
+      var c = (inpC.value || '').trim();
+      var s = (inpS.value || '').trim();
+      if (!t || !c || !s) { toast('3 个都得填', true); return; }
+      setQojCookie({ token: t, checksum: c, session: s });
+      inpT.value = ''; inpC.value = ''; inpS.value = '';
       refresh();
       toast('✓ QOJ cookie 已保存到 localStorage');
     });
     if (btnCl) btnCl.addEventListener('click', function () {
       if (!confirm('清除 QOJ cookie？')) return;
-      setQojCookie('');
+      setQojCookie(null);
       refresh();
       toast('已清除');
     });
@@ -222,7 +255,8 @@
 
   // ---- 暴露 ----
   window.Wiki = {
-    REPO: REPO, TOKEN_KEY: TOKEN_KEY, QOJ_COOKIE_KEY: QOJ_COOKIE_KEY,
+    REPO: REPO, TOKEN_KEY: TOKEN_KEY,
+    QOJ_COOKIE_TOK: QOJ_COOKIE_TOK, QOJ_COOKIE_CHK: QOJ_COOKIE_CHK, QOJ_COOKIE_SES: QOJ_COOKIE_SES,
     getToken: getToken, setToken: setToken, clearToken: clearToken,
     getQojCookie: getQojCookie, setQojCookie: setQojCookie,
     apiUrl: apiUrl, rawUrl: rawUrl, apiHeaders: apiHeaders,

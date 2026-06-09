@@ -388,20 +388,33 @@
     </p>
     <p class="hint" style="margin-top: 0.5em;">
       <strong>取法</strong>：浏览器登录 <a href="https://qoj.ac" target="_blank" rel="noopener">qoj.ac</a>
-      → F12 → Application → Cookies → <code>qoj.ac</code> → 选中那 3 行（<code>uoj_remember_token</code> /
-      <code>uoj_remember_token_checksum</code> / <code>UOJSESSID</code>）→ 全选 Value 拼成
-      <code>uoj_remember_token=VAL1;uoj_remember_token_checksum=VAL2;UOJSESSID=VAL3</code> 粘到下面。
+      → F12 → Application → Cookies → <code>qoj.ac</code> → 点开每个 cookie
+      （<code>uoj_remember_token</code> / <code>uoj_remember_token_checksum</code> / <code>UOJSESSID</code>）
+      → 复制 Value 粘到对应框。
     </p>
     <p class="hint" style="margin-top: 0.5em;">
       <strong>⚠️ CORS</strong>：qoj.ac 没设 CORS 头，浏览器会拒掉跨域 response。
       需要装 <a href="https://chromewebstore.google.com/search/CORS" target="_blank" rel="noopener">Allow CORS</a>
       类扩展，对 <code>qoj.ac</code> enable。装完刷新本页面。
     </p>
-    <input type="password" id="qoj-cookie" placeholder="uoj_remember_token=...;uoj_remember_token_checksum=...;UOJSESSID=..." autocomplete="off">
+    <div class="row">
+      <div>
+        <label>uoj_remember_token</label>
+        <input type="password" id="qoj-cookie-token" autocomplete="off">
+      </div>
+      <div>
+        <label>uoj_remember_token_checksum</label>
+        <input type="password" id="qoj-cookie-checksum" autocomplete="off">
+      </div>
+      <div>
+        <label>UOJSESSID</label>
+        <input type="password" id="qoj-cookie-session" autocomplete="off">
+      </div>
+    </div>
     <div class="row">
       <button class="btn sec tiny" id="btn-save-qoj-cookie">保存</button>
       <button class="btn sec tiny" id="btn-clear-qoj-cookie" style="display:none;">清除</button>
-      <span class="hint" id="qoj-cookie-status">未配置</span>
+      <span class="hint" id="qoj-cookie-status">0/3</span>
     </div>
   </details>
 

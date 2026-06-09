@@ -106,13 +106,117 @@ test('clearToken removes from localStorage', () => {
   assert.equal(store['gh_token_v1'], undefined);
 });
 
-test('setToken/clearToken do not touch qoj_cookie_v1 (independent keys)', () => {
+// ---- QOJ cookie (3 separate localStorage keys, joined on read) ----
+
+test('getQojCookie returns "" when no keys set', () => {
+  const { Wiki } = loadWiki();
+  assert.equal(Wiki.getQojCookie(), '');
+});
+
+test('getQojCookie returns "" when only some keys set (need all 3)', () => {
   const { Wiki, store } = loadWiki();
-  store['qoj_cookie_v1'] = 'uoj=1';
+  store['qoj_remember_token'] = 't';
+  store['qoj_remember_token_checksum'] = 'c';
+  // UOJSESSID missing
+  assert.equal(Wiki.getQojCookie(), '',
+    'partial cookie should not be sent to qoj.ac');
+});
+
+test('getQojCookie joins all 3 keys into a Cookie: header string', () => {
+  const { Wiki, store } = loadWiki();
+  store['qoj_remember_token'] = 'T1';
+  store['qoj_remember_token_checksum'] = 'C1';
+  store['qoj_UOJSESSID'] = 'S1';
+  assert.equal(
+    Wiki.getQojCookie(),
+    'uoj_remember_token=T1;uoj_remember_token_checksum=C1;UOJSESSID=S1'
+  );
+});
+
+test('setQojCookie(parts) writes all 3 keys', () => {
+  const { Wiki, store } = loadWiki();
+  Wiki.setQojCookie({ token: 'T', checksum: 'C', session: 'S' });
+  assert.equal(store['qoj_remember_token'], 'T');
+  assert.equal(store['qoj_remember_token_checksum'], 'C');
+  assert.equal(store['qoj_UOJSESSID'], 'S');
+});
+
+test('setQojCookie(null) clears all 3 keys', () => {
+  const { Wiki, store } = loadWiki();
+  Wiki.setQojCookie({ token: 'T', checksum: 'C', session: 'S' });
+  Wiki.setQojCookie(null);
+  assert.equal(store['qoj_remember_token'], undefined);
+  assert.equal(store['qoj_remember_token_checksum'], undefined);
+  assert.equal(store['qoj_UOJSESSID'], undefined);
+  assert.equal(Wiki.getQojCookie(), '');
+});
+
+test('setQojCookie({...}) with any empty part clears all 3 keys (atomic)', () => {
+  const { Wiki, store } = loadWiki();
+  Wiki.setQojCookie({ token: 'T', checksum: 'C', session: 'S' });
+  // Empty token
+  Wiki.setQojCookie({ token: '', checksum: 'C', session: 'S' });
+  assert.equal(store['qoj_UOJSESSID'], undefined,
+    'atomic clear: if any part is empty, all 3 should be removed');
+});
+
+test('setToken/clearToken do not touch QOJ cookie keys (independent storage)', () => {
+  const { Wiki, store } = loadWiki();
+  store['qoj_remember_token'] = 'T';
+  store['qoj_remember_token_checksum'] = 'C';
+  store['qoj_UOJSESSID'] = 'S';
   Wiki.setToken('ghp_x');
-  assert.equal(store['qoj_cookie_v1'], 'uoj=1');
+  assert.equal(store['qoj_remember_token'], 'T');
   Wiki.clearToken();
-  assert.equal(store['qoj_cookie_v1'], 'uoj=1', 'clearToken must not wipe QOJ cookie');
+  assert.equal(store['qoj_remember_token'], 'T',
+    'clearToken must not wipe QOJ cookie');
+});
+
+test('wireQojCookieUI: 0/3 status when nothing configured', () => {
+  const inpT = { value: '', style: {} };
+  const inpC = { value: '', style: {} };
+  const inpS = { value: '', style: {} };
+  const btnSv = { addEventListener: () => {}, style: {}, disabled: false };
+  const st = { textContent: '' };
+  const { Wiki } = loadWiki({
+    elements: {
+      'qoj-cookie-token': inpT,
+      'qoj-cookie-checksum': inpC,
+      'qoj-cookie-session': inpS,
+      'btn-save-qoj-cookie': btnSv,
+      'qoj-cookie-status': st,
+    },
+  });
+  Wiki.wireQojCookieUI();
+  assert.equal(st.textContent, '0/3');
+  assert.equal(btnSv.disabled, false, 'save enabled when nothing configured');
+});
+
+test('wireQojCookieUI: save button disabled until all 3 inputs filled', () => {
+  let saveHandler;
+  const inpT = { value: '', style: {} };
+  const inpC = { value: '', style: {} };
+  const inpS = { value: '', style: {} };
+  const btnSv = {
+    addEventListener: (_evt, fn) => { saveHandler = fn; },
+    style: {}, disabled: false,
+  };
+  const { Wiki, store } = loadWiki({
+    elements: {
+      'qoj-cookie-token': inpT,
+      'qoj-cookie-checksum': inpC,
+      'qoj-cookie-session': inpS,
+      'btn-save-qoj-cookie': btnSv,
+      'qoj-cookie-status': { textContent: '' },
+    },
+  });
+  Wiki.wireQojCookieUI();
+  // 只填 2 个
+  inpT.value = 'tok';
+  inpC.value = 'chk';
+  saveHandler();
+  assert.equal(store['qoj_remember_token'], undefined,
+    'save should refuse when only 2/3 are filled');
 });
 
 // ---- URLs ----
