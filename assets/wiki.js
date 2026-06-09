@@ -133,6 +133,44 @@
     el.className = 'status-pill' + (state ? ' ' + state : '');
   }
 
+  // ---- QOJ fetch helpers（被 editor/ 复用，单独可测） ----
+  // 识别 QOJ/UOJ 的"未登录"信号：401/403 状态码，或 200 但 body 是登录页。
+  // 命中返回 true——外层 fetch 调用方会 throw 带 code: 'cookie_expired' 的 Error。
+  function isQojLoginSignal(status, body) {
+    if (status === 401 || status === 403) return true;
+    if (status === 200 && body) {
+      if (/<form[^>]+action="[^"]*\/login/i.test(body)) return true;
+      if (/请先登录|Please\s+[Ll]ogin|Login\s+Required/i.test(body)) return true;
+    }
+    return false;
+  }
+  // 拉一个 QOJ 页面 HTML。cookie 走手动 header 绕开 SameSite=Lax。
+  // 返回 Promise<string>。cookie 过期时 reject 出带 code: 'cookie_expired' 的 Error；
+  // 其他 HTTP 错（CF 拒绝、404 等）reject 出普通 Error('HTTP N')。
+  function qojFetchHtml(url, cookie) {
+    return fetch(url, {
+      method: 'GET',
+      credentials: 'omit',
+      headers: {
+        'Cookie': cookie,
+        'User-Agent': 'Mozilla/5.0 (compatible; QOJ-Import)',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+      redirect: 'follow',
+      cache: 'no-store',
+    }).then(function (r) {
+      return r.text().then(function (body) {
+        if (isQojLoginSignal(r.status, body)) {
+          var e = new Error('QOJ cookie 过期或无效（HTTP ' + r.status + '）');
+          e.code = 'cookie_expired';
+          throw e;
+        }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return body;
+      });
+    });
+  }
+
   // 绑定 <details class="token-config" id="token-config"> 块。
   // 块内必须有以下 ID：gh-token (input)、btn-save-token、btn-clear-token、token-status (span)、
   // gh-status-banner (span, 可选)。任一缺失就静默跳过（不报错，方便部分页面只用子集）。
@@ -264,5 +302,6 @@
     esc: esc, toast: toast, setStatus: setStatus,
     wireTokenUI: wireTokenUI, wireQojCookieUI: wireQojCookieUI,
     wireBeforeUnload: wireBeforeUnload,
+    isQojLoginSignal: isQojLoginSignal, qojFetchHtml: qojFetchHtml,
   };
 })();

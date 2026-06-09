@@ -889,25 +889,7 @@
     // /results/QOJ{id}     → 12 题状态（standings 表，挑 username 那行）
     // 三个 URL 都需要 Cookie 头（QOJ cookie 走 localStorage，绕过 SameSite=Lax）。
     // CORS：qoj.ac 没设 ACAO 头，浏览器默认会拒掉。靠用户装的 CORS 扩展（如 "Allow CORS"）放行。
-
-    function qojFetchHtml(url, cookie) {
-      // 返回 Promise<text>；fetch 失败时 reject（典型：装了 CORS 扩展但 CF 把 IP 拒了；
-      // 没装 CORS 扩展时也是 fail——两种都提示用户去装 CORS 扩展并刷新）
-      return fetch(url, {
-        method: 'GET',
-        credentials: 'omit',  // 不带浏览器 cookie（SameSite=Lax 跨站不发）；用 header 手动注入
-        headers: {
-          'Cookie': cookie,
-          'User-Agent': 'Mozilla/5.0 (compatible; QOJ-Import)',
-          'Accept': 'text/html,application/xhtml+xml',
-        },
-        redirect: 'follow',
-        cache: 'no-store',
-      }).then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.text();
-      });
-    }
+    // qojFetchHtml 在 wiki.js 里——会检测 cookie 过期（401/403 或 login HTML），throw 带 code: 'cookie_expired'。
 
     function qojParseContestPage(html, contestId) {
       // 比赛名从 h1 拿；题目列表从 /contest/{id}/problem/{pid} 链接拿
@@ -1079,18 +1061,18 @@
       }
 
       // 三个 fetch 可以并发；任一失败就 abort 整个流程
-      var contestPageP = qojFetchHtml('https://qoj.ac/contest/' + contestId, cookie)
+      var contestPageP = W.qojFetchHtml('https://qoj.ac/contest/' + contestId, cookie)
         .then(function (html) {
           btn.textContent = '⏳ 拉 /contests + /results…';
           $('qoj-status').textContent = '浏览器里拉比赛列表…';
           return qojParseContestPage(html, contestId);
         });
-      var listP = qojFetchHtml('https://qoj.ac/contests', cookie)
+      var listP = W.qojFetchHtml('https://qoj.ac/contests', cookie)
         .then(function (html) {
           $('qoj-status').textContent = '浏览器里拉 standings…';
           return qojParseContestsList(html, contestId);
         });
-      var standingsP = qojFetchHtml('https://qoj.ac/results/QOJ' + contestId, cookie)
+      var standingsP = W.qojFetchHtml('https://qoj.ac/results/QOJ' + contestId, cookie)
         .then(function (html) { return qojParseStandings(html, username); });
 
       Promise.all([contestPageP, listP, standingsP]).then(function (res) {
@@ -1100,6 +1082,14 @@
         done(true);
       }).catch(function (e) {
         var msg = (e && e.message) || String(e);
+        if (e && e.code === 'cookie_expired') {
+          $('qoj-status').textContent = '❌ Cookie 过期';
+          W.toast('🍪 QOJ cookie 过期或无效。去 🍪 QOJ Cookie 块更新一次。', true);
+          var d = $('qoj-cookie-config');
+          if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+          done(false);
+          return;
+        }
         $('qoj-status').textContent = '❌ 抓取失败';
         W.toast(qojShowCorsHint() + '\n\n[' + msg + ']', true);
         done(false);
