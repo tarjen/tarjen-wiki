@@ -75,7 +75,7 @@
 
 **前置条件 1：QOJ cookie**（只一次）：
 
-打开 [qoj.ac](https://qoj.ac) 登录 → F12 → Application → Cookies → `qoj.ac` → 选中那 3 行（`uoj_remember_token` / `uoj_remember_token_checksum` / `UOJSESSID`）→ Value 列复制拼成 `uoj_remember_token=VAL1;uoj_remember_token_checksum=VAL2;UOJSESSID=VAL3` → 粘到编辑器「🍪 QOJ Cookie」输入框 → 保存（存浏览器 localStorage）。
+打开 [qoj.ac](https://qoj.ac) 登录 → F12 → Application → Cookies → `qoj.ac` → 逐个点开 `uoj_remember_token` / `uoj_remember_token_checksum` / `UOJSESSID` → Value 列复制 → 在编辑器「🍪 QOJ Cookie」3 个对应输入框里分别粘进去 → 点保存（存浏览器 localStorage）。
 
 > cookie 过期了（一般 7–30 天）再来更新一次。
 
