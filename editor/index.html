@@ -1083,14 +1083,17 @@
       }).catch(function (e) {
         var msg = (e && e.message) || String(e);
         if (e && e.code === 'cookie_expired') {
-          $('qoj-status').textContent = '❌ Cookie 过期';
+          $('qoj-status').textContent = '❌ Cookie 过期：' + msg;
           W.toast('🍪 QOJ cookie 过期或无效。去 🍪 QOJ Cookie 块更新一次。', true);
           var d = $('qoj-cookie-config');
           if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
           done(false);
           return;
         }
-        $('qoj-status').textContent = '❌ 抓取失败';
+        // 通用失败：toast 短提示（CORS 扩展那一套），但完整错误写进状态栏（不消失）
+        // 并打印到 console 让 F12 也能看到。
+        $('qoj-status').textContent = '❌ 抓取失败：' + msg;
+        console.error('[qoj import] failed:', e);
         W.toast(qojShowCorsHint() + '\n\n[' + msg + ']', true);
         done(false);
       });
