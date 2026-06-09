@@ -53,7 +53,7 @@
 1. 填比赛名、日期、题目总数
 2. 点格子循环切状态：**未做 → O（赛中过题）→ Ø（赛后补过）→ !（尝试没过）→ 未做**
 3. 滚到底部「💾 保存修改」面板
-4. **首次用**：点「⚙ GitHub Token 配置」按步骤生成 fine-grained PAT（仓库选 `tarjen/tarjen-wiki`，权限选 Contents: Read and write），粘进去保存（只存 localStorage，不上传服务器）
+4. **首次用**：点「⚙ GitHub Token 配置」生成 fine-grained PAT（仓库选 `tarjen/tarjen-wiki`，权限只勾 Contents: Read and write），粘进去点保存（明文存 localStorage，不上传服务器）
 5. 之后每次：点 **💾 保存到 GitHub** 就直接 PUT 到 `contests.csv`，完事
 
 配了 GitHub Actions 自动跑 `mkdocs build + gh-deploy` 的话，commit 完几秒后刷新页面就能看到新表。
@@ -67,14 +67,25 @@
 
 1. 粘 QOJ 比赛链接（如 `https://qoj.ac/contest/2564` 或只填 `2564`）
 2. 填 QOJ 用户名（如 `tarjen`）
-3. 点「📥 导入」—— 浏览器**一按就走 GitHub Actions** 在服务端跑 `tools/qoj_sync.py`，绕 Cloudflare
-4. 等几秒到 2 分钟（取决于 QOJ 题目数和提交数），出现「✅ 抓到了，13 题」预览
-5. 看一眼映射：AC + 赛中 → `O`，AC + 赛后 → `Ø`，WA/TLE/RE → `!`，没提交 → `.`
-6. 点「✅ 填入表单」→ 编辑器填好 → 自己再点格子微调 → 「💾 保存到 GitHub」
+3. 点「📥 导入」—— 浏览器**一按就自己 fetch qoj.ac**，几秒出预览
+4. 看一眼映射：AC + 赛中 → `O`，AC + 赛后 → `Ø`，WA/TLE/RE → `!`，没提交 → `.`
+5. 点「✅ 填入表单」→ 编辑器填好 → 自己再点格子微调 → 「💾 保存到 GitHub」
 
-**前置条件**：GitHub PAT 多勾一个 **Workflows: Read and write** 权限（生成页面在 `Workflows` 那一栏）。只有触发的权限要这个，「保存到 GitHub」用的是 Contents:write。
+整个过程在**你家浏览器**里跑，Cloudflare 信任家用 IP，不被卡。**不依赖 GitHub Actions**。
 
-**怎么知道 import 跑成功没**：点完「📥 导入」可以关页面；下次打开编辑器时数据已经在 cache 里了。
+**前置条件 1：QOJ cookie**（只一次）：
+
+打开 [qoj.ac](https://qoj.ac) 登录 → F12 → Application → Cookies → `qoj.ac` → 选中那 3 行（`uoj_remember_token` / `uoj_remember_token_checksum` / `UOJSESSID`）→ Value 列复制拼成 `uoj_remember_token=VAL1;uoj_remember_token_checksum=VAL2;UOJSESSID=VAL3` → 粘到编辑器「🍪 QOJ Cookie」输入框 → 保存（存浏览器 localStorage）。
+
+> cookie 过期了（一般 7–30 天）再来更新一次。
+
+**前置条件 2：CORS 扩展**（只一次）：
+
+qoj.ac 没设 CORS 头，浏览器默认拒掉跨域 response。装个 [Allow CORS](https://chromewebstore.google.com/search/CORS) 类扩展，对 `qoj.ac` enable，刷新本页面。
+
+**没反应 / 报 CORS 错**：去「🍪 QOJ Cookie」检查 cookie 是不是过期了；CORS 扩展是否对 qoj.ac enable。
+
+如果哪天 CF 升级把 `/results/QOJ{cid}` 也卡了，**cache entry 会加 `cf_blocked: true` 标记**——编辑器看到后告诉你要手动点格子。
 
 ### 直接改仓库
 

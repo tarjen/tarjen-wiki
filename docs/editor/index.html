@@ -9,7 +9,7 @@
     script-src 'self' 'unsafe-inline';
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: https:;
-    connect-src 'self' https://api.github.com https://raw.githubusercontent.com;
+    connect-src 'self' https://api.github.com https://raw.githubusercontent.com https://qoj.ac;
     object-src 'none';
     base-uri 'self';
     form-action 'self';
@@ -287,9 +287,15 @@
     <h2>📥 从 QOJ 导入</h2>
     <div class="card">
       <p class="hint" style="margin-top: 0;">
-        粘 QOJ 比赛链接 + 你的 QOJ 用户名 → 点「导入」会触发 GitHub Actions 在服务端抓取你的比赛记录，
-        抓完点「填入表单」就能直接保存到 <code>contests.csv</code>。
-        整个过程在 GitHub 服务器跑，绕过 Cloudflare，浏览器零依赖。
+        粘比赛链接 + 用户名 → 点「导入」在浏览器里直接拉你的比赛记录，
+        抓到后点「填入表单」就能直接保存到 <code>contests.csv</code>。
+        整个过程在<strong>你家浏览器</strong>里跑，绕过 Cloudflare（CF 信任家用 IP），
+        不依赖 GitHub Actions。
+      </p>
+      <p class="hint" style="margin-top: 0.4em;">
+        第一次用：去 <code>🍪 QOJ Cookie</code> 里粘登录 cookie（一次性，存 localStorage）；
+        同时装个 <a href="https://chromewebstore.google.com/search/CORS" target="_blank" rel="noopener">Allow CORS</a>
+        类扩展并对 <code>qoj.ac</code> enable，否则浏览器会拒掉跨域 response。
       </p>
       <div class="row">
         <div>
@@ -363,18 +369,40 @@
     <p class="hint" style="margin-top: 0.5em;">
       ① 打开 <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">GitHub PAT 设置</a>
       ② New fine-grained token，仓库只勾 <code>tarjen/tarjen-wiki</code>，权限只勾 <strong>Contents: Read and write</strong>
-      ③ 复制 token 粘到下面；可选：用密码加密后存到 localStorage（关闭浏览器需重新输入密码解锁）
+      ③ 复制 token 粘到下面，点保存（只存浏览器 localStorage，不上传服务器）
     </p>
     <input type="password" id="gh-token" placeholder="github_pat_xxx..." autocomplete="off">
-    <input type="password" id="gh-pwd" placeholder="加密密码（可选；至少 6 位）" autocomplete="off">
     <div class="row">
-      <button class="btn sec tiny" id="btn-save-token">保存到内存</button>
-      <button class="btn sec tiny" id="btn-unlock" style="display:none;">🔓 解锁</button>
-      <button class="btn sec tiny" id="btn-encrypt" style="display:none;">🔒 用密码加密</button>
+      <button class="btn sec tiny" id="btn-save-token">保存</button>
       <button class="btn sec tiny" id="btn-clear-token" style="display:none;">清除</button>
       <span class="hint" id="token-status"></span>
     </div>
     <p class="hint" id="gh-status-banner" style="margin-top: 0.6em;"></p>
+  </details>
+
+  <details class="token-config" id="qoj-cookie-config" style="margin-top: 0.6em;">
+    <summary>🍪 QOJ Cookie（导入比赛需要）</summary>
+    <p class="hint" style="margin-top: 0.5em;">
+      编辑器直接在浏览器里 <code>fetch(qoj.ac/...)</code>，需要带你的 QOJ 登录 cookie。
+      只存浏览器 localStorage，不上传服务器；过期了（一般 7–30 天）来改一次。
+    </p>
+    <p class="hint" style="margin-top: 0.5em;">
+      <strong>取法</strong>：浏览器登录 <a href="https://qoj.ac" target="_blank" rel="noopener">qoj.ac</a>
+      → F12 → Application → Cookies → <code>qoj.ac</code> → 选中那 3 行（<code>uoj_remember_token</code> /
+      <code>uoj_remember_token_checksum</code> / <code>UOJSESSID</code>）→ 全选 Value 拼成
+      <code>uoj_remember_token=VAL1;uoj_remember_token_checksum=VAL2;UOJSESSID=VAL3</code> 粘到下面。
+    </p>
+    <p class="hint" style="margin-top: 0.5em;">
+      <strong>⚠️ CORS</strong>：qoj.ac 没设 CORS 头，浏览器会拒掉跨域 response。
+      需要装 <a href="https://chromewebstore.google.com/search/CORS" target="_blank" rel="noopener">Allow CORS</a>
+      类扩展，对 <code>qoj.ac</code> enable。装完刷新本页面。
+    </p>
+    <input type="password" id="qoj-cookie" placeholder="uoj_remember_token=...;uoj_remember_token_checksum=...;UOJSESSID=..." autocomplete="off">
+    <div class="row">
+      <button class="btn sec tiny" id="btn-save-qoj-cookie">保存</button>
+      <button class="btn sec tiny" id="btn-clear-qoj-cookie" style="display:none;">清除</button>
+      <span class="hint" id="qoj-cookie-status">未配置</span>
+    </div>
   </details>
 
   <div class="toast" id="toast"></div>
@@ -388,12 +416,6 @@
   document.addEventListener('DOMContentLoaded', function () {
     var W = window.Wiki;
     var $ = function (id) { return document.getElementById(id); };
-
-    // 旧版 v1 明文 token 自动迁移到内存；内存里就有 token 了
-    try {
-      var legacy = localStorage.getItem(W.TOKEN_KEY);
-      if (legacy && !W.getToken()) W.setToken(legacy);
-    } catch (e) {}
 
     function getView() {
       return new URLSearchParams(location.search).get('view') === 'md' ? 'md' : 'table';
@@ -751,8 +773,10 @@
     $('btn-exit-edit').addEventListener('click', exitEditMode);
 
     // ---------- QOJ 导入 ----------
-    // 真·一键：浏览器触发 GitHub Actions → workflow 跑 qoj_sync.py → 写 cache 回 main
-    // 浏览器轮询 raw.githubusercontent.com 的 cache JSON 拿到结果 → 预览 → 填入
+    // 真·一键：浏览器直接 fetch qoj.ac（用 manual Cookie: header 绕开 SameSite=Lax），
+    // 解析 /contest /contests /results 三个页面 → 预览 → 填入表单。
+    // 不走 GH Actions（CF 把它 IP 段卡得很死），不依赖 server-side fetcher。
+    // 前提：用户装 CORS 扩展对 qoj.ac enable；cookie 存 localStorage。
     function parseQojContestId(s) {
       s = (s || '').trim();
       var m = /contest\/(\d+)/.exec(s);
@@ -846,77 +870,231 @@
         $('qoj-status').textContent = '已丢弃';
       });
     }
-    function pollQojCache(contestId, startedAt) {
-      // 每 5s 拉一次 raw.githubusercontent 的 cache JSON
-      // raw.githubusercontent 走 GitHub 自己的 CDN，不需要 PAT
-      var url = W.rawUrl('docs/data/qoj-cache.json') + '?_t=' + Date.now();
-      function tick() {
-        fetch(url, { cache: 'no-store' })
-          .then(function (r) { return r.ok ? r.json() : null; })
-          .then(function (data) {
-            if (data && data.contests && data.contests[contestId] &&
-                data.contests[contestId].fetched_at >= startedAt) {
-              $('qoj-status').textContent = '✅ 抓到了，' + (data.contests[contestId].problems || []).length + ' 题';
-              $('btn-qoj-fetch').disabled = false;
-              $('btn-qoj-fetch').textContent = '📥 导入';
-              renderQojPreview(data.contests[contestId], contestId);
-              return;
-            }
-            // 60s 太久了，停下来让用户重试
-            if (Date.now() - startedAt > 120000) {
-              $('qoj-status').textContent = '⏰ 超时（2 分钟还没抓到）。GitHub Actions 是不是挂了？';
-              $('btn-qoj-fetch').disabled = false;
-              $('btn-qoj-fetch').textContent = '📥 导入';
-              return;
-            }
-            setTimeout(tick, 5000);
-          })
-          .catch(function () {
-            // raw 没就绪或网络抖：继续等
-            if (Date.now() - startedAt > 120000) {
-              $('qoj-status').textContent = '⏰ 超时（拉取 raw 失败）';
-              $('btn-qoj-fetch').disabled = false;
-              $('btn-qoj-fetch').textContent = '📥 导入';
-              return;
-            }
-            setTimeout(tick, 5000);
-          });
-      }
-      tick();
+    // ---------------- QOJ 导入：浏览器里直接 fetch ----------------
+    // /contest/{id}        → 比赛名 + 题目列表
+    // /contests            → start_time + duration_hours
+    // /results/QOJ{id}     → 12 题状态（standings 表，挑 username 那行）
+    // 三个 URL 都需要 Cookie 头（QOJ cookie 走 localStorage，绕过 SameSite=Lax）。
+    // CORS：qoj.ac 没设 ACAO 头，浏览器默认会拒掉。靠用户装的 CORS 扩展（如 "Allow CORS"）放行。
+
+    function qojFetchHtml(url, cookie) {
+      // 返回 Promise<text>；fetch 失败时 reject（典型：装了 CORS 扩展但 CF 把 IP 拒了；
+      // 没装 CORS 扩展时也是 fail——两种都提示用户去装 CORS 扩展并刷新）
+      return fetch(url, {
+        method: 'GET',
+        credentials: 'omit',  // 不带浏览器 cookie（SameSite=Lax 跨站不发）；用 header 手动注入
+        headers: {
+          'Cookie': cookie,
+          'User-Agent': 'Mozilla/5.0 (compatible; QOJ-Import)',
+          'Accept': 'text/html,application/xhtml+xml',
+        },
+        redirect: 'follow',
+        cache: 'no-store',
+      }).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      });
     }
+
+    function qojParseContestPage(html, contestId) {
+      // 比赛名从 h1 拿；题目列表从 /contest/{id}/problem/{pid} 链接拿
+      var name = '';
+      var h1m = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
+      if (h1m) name = h1m[1].trim();
+      var problems = [];
+      var re = new RegExp('<a\\s+href="/contest/' + contestId + '/problem/(\\d+)"\\s*>([^<]+)</a>', 'g');
+      var m;
+      while ((m = re.exec(html))) {
+        problems.push({ id: parseInt(m[1], 10), letter: String.fromCharCode(65 + problems.length), title: m[2].trim() });
+      }
+      return { name: name || ('Contest ' + contestId), problems: problems };
+    }
+
+    function qojParseContestsList(html, contestId) {
+      // 找 /contest/{id} 链接所在 <tr>，同行的 timeanddate 链接拿 start_time，
+      // 同行 <td> 里第一个纯数字拿 duration_hours
+      // 用 DOMParser 比 regex 稳（HTML 结构可能换）
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var link = doc.querySelector('a[href="/contest/' + contestId + '"]');
+      if (!link) return { start_time: '', duration_hours: 0 };
+      var row = link.closest('tr');
+      if (!row) return { start_time: '', duration_hours: 0 };
+      var iso = null;
+      var td = row.querySelector('a[href*="timeanddate.com"]');
+      if (td) {
+        var mm = td.href.match(/iso=(\d{8})T(\d{4})/);
+        if (mm) iso = [mm[1], mm[2]];
+      }
+      var duration = 0;
+      row.querySelectorAll('td').forEach(function (t) {
+        var s = t.textContent.trim();
+        if (/^\d+$/.test(s) && !duration) duration = parseInt(s, 10);
+      });
+      var start_time = '';
+      if (iso) {
+        // timeanddate 给的是 UTC ISO：YYYYMMDDHHMM
+        var y = iso[0].slice(0, 4), mo = iso[0].slice(4, 6), d = iso[0].slice(6, 8);
+        var h = iso[1].slice(0, 2), mi = iso[1].slice(2, 4);
+        start_time = y + '-' + mo + '-' + d + 'T' + h + ':' + mi + ':00+00:00';
+      }
+      return { start_time: start_time, duration_hours: duration };
+    }
+
+    function qojParseStandings(html, username) {
+      // standings 表：header [Rank, Username, A..L, Solved, Penalty, Dirt]
+      // 行：tds[1] 是 username，tds[2..-4] 是题目 cells
+      // Cell HTML：<center>+3<br><font size="1">0:08</font></center> / <center>-<br></center> / <center><br></center>
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var rows = doc.querySelectorAll('table tr');
+      if (!rows.length) return { cells: null, error: 'no_table' };
+      var ths = rows[0].querySelectorAll('th');
+      var letters = [];
+      for (var i = 2; i < ths.length - 3; i++) {
+        letters.push(ths[i].textContent.trim().charAt(0));
+      }
+      for (var r = 0; r < rows.length; r++) {
+        var tds = rows[r].querySelectorAll('td');
+        if (tds.length < 5) continue;
+        if (tds[1].textContent.trim() !== username) continue;
+        var cells = [];
+        for (var j = 2; j < tds.length - 3; j++) {
+          var center = tds[j].querySelector('center');
+          var status = '', time = '';
+          if (center) {
+            var fc = center.firstChild;
+            if (fc && fc.nodeType === 3) status = fc.textContent.trim();
+            var f = center.querySelector('font');
+            if (f) time = f.textContent.trim();
+          }
+          cells.push({ letter: letters[j - 2], status: status, time: time });
+        }
+        return { cells: cells };
+      }
+      return { cells: null, error: 'user_not_found' };
+    }
+
+    function qojParseRelativeTime(timeStr, startIso) {
+      // 'H:MM' (hours:minutes) → 绝对时间 'YYYY-MM-DD HH:MM:SS'
+      if (!timeStr || !startIso) return '';
+      var parts = timeStr.split(':');
+      try {
+        var hours, minutes, seconds = 0;
+        if (parts.length === 2) { hours = +parts[0]; minutes = +parts[1]; }
+        else if (parts.length === 3) { hours = +parts[0]; minutes = +parts[1]; seconds = +parts[2]; }
+        else return '';
+        var dt = new Date(startIso);
+        if (isNaN(dt.getTime())) return '';
+        dt.setUTCMinutes(dt.getUTCMinutes() + hours * 60 + minutes);
+        dt.setUTCSeconds(dt.getUTCSeconds() + seconds);
+        var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+        return dt.getUTCFullYear() + '-' + pad(dt.getUTCMonth() + 1) + '-' + pad(dt.getUTCDate())
+          + ' ' + pad(dt.getUTCHours()) + ':' + pad(dt.getUTCMinutes()) + ':' + pad(dt.getUTCSeconds());
+      } catch (e) { return ''; }
+    }
+
+    function qojInContest(acAt, startIso, durationHours) {
+      if (!acAt || !startIso || !durationHours) return false;
+      var ac = new Date(acAt.replace(' ', 'T') + '+00:00').getTime();
+      var start = new Date(startIso).getTime();
+      var end = start + durationHours * 3600 * 1000;
+      return ac >= start && ac <= end;
+    }
+
+    function qojBuildEntry(contestPage, list, standingsResult, contestId, username) {
+      var entry = {
+        name: contestPage.name,
+        start_time: list.start_time,
+        duration_hours: list.duration_hours,
+        fetched_at: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
+        problems: contestPage.problems,
+        submissions: {},
+      };
+      if (standingsResult && standingsResult.cells) {
+        var subs = {};
+        var byLetter = {};
+        standingsResult.cells.forEach(function (c) { byLetter[c.letter] = c; });
+        contestPage.problems.forEach(function (p) {
+          var c = byLetter[p.letter];
+          if (!c) return;
+          if (c.status.indexOf('+') === 0) {
+            var acAt = qojParseRelativeTime(c.time, list.start_time);
+            subs[String(p.id)] = {
+              status: 'AC', ac_at: acAt,
+              in_contest: qojInContest(acAt, list.start_time, list.duration_hours),
+              tried: true,
+            };
+          } else if (c.status.indexOf('-') === 0) {
+            // standings 不告诉具体失败原因，cache 标 'WA' → 编辑器映射到 '!'
+            subs[String(p.id)] = { status: 'WA', ac_at: '', in_contest: false, tried: true };
+          }
+          // 空 cell = 没做，不写 entry（编辑器按 '.' 处理）
+        });
+        entry.submissions[username] = subs;
+      }
+      return entry;
+    }
+
+    function qojShowCorsHint() {
+      return '抓不到。两种可能：\n' +
+        '1) 没装 CORS 扩展（qoj.ac 没设 CORS 头，浏览器拒掉跨域 response）。\n' +
+        '   装一个 "Allow CORS" 类 Chrome 扩展并对 qoj.ac enable，然后刷新本页。\n' +
+        '2) QOJ cookie 过期/没填。先打开 qoj.ac 重新登录，去 🍪 QOJ Cookie 里更新一次。';
+    }
+
     $('btn-qoj-fetch').addEventListener('click', function () {
       var contestId = parseQojContestId($('qoj-contest').value);
       var username = $('qoj-user').value.trim();
       if (!contestId) { W.toast('先填 QOJ 比赛 URL 或 ID', true); return; }
       if (!username) { W.toast('先填 QOJ 用户名', true); return; }
-      if (!W.getToken()) {
-        W.toast('先在「GitHub Token 配置」里保存 token', true);
-        var d = $('token-config'); if (d) { d.open = true; d.scrollIntoView(); }
+      var cookie = W.getQojCookie();
+      if (!cookie) {
+        W.toast('先在 🍪 QOJ Cookie 里粘 cookie', true);
+        var d = $('qoj-cookie-config'); if (d) { d.open = true; d.scrollIntoView(); }
         return;
       }
       var btn = $('btn-qoj-fetch');
       btn.disabled = true;
-      btn.textContent = '⏳ 触发 workflow…';
-      $('qoj-status').textContent = '正在 POST GitHub API…';
+      var origLabel = btn.textContent;
+      btn.textContent = '⏳ 抓 /contest/' + contestId + '…';
+      $('qoj-status').textContent = '浏览器里拉比赛页…';
       $('qoj-preview').style.display = 'none';
       $('qoj-preview').innerHTML = '';
-      W.triggerWorkflow('qoj-import.yml', {
-        contest_id: contestId,
-        username: username,
-      }).then(function () {
-        var startedAt = new Date().toISOString();
-        $('qoj-status').textContent = '⏳ GitHub 正在抓取（最长 2 分钟）…';
-        btn.textContent = '⏳ 抓取中…';
-        pollQojCache(contestId, startedAt);
-      }).catch(function (e) {
-        $('qoj-status').textContent = '触发失败：' + e.message;
+
+      function done(ok) {
         btn.disabled = false;
-        btn.textContent = '📥 导入';
-        W.toast('触发失败：' + e.message, true);
+        btn.textContent = origLabel;
+      }
+
+      // 三个 fetch 可以并发；任一失败就 abort 整个流程
+      var contestPageP = qojFetchHtml('https://qoj.ac/contest/' + contestId, cookie)
+        .then(function (html) {
+          btn.textContent = '⏳ 拉 /contests + /results…';
+          $('qoj-status').textContent = '浏览器里拉比赛列表…';
+          return qojParseContestPage(html, contestId);
+        });
+      var listP = qojFetchHtml('https://qoj.ac/contests', cookie)
+        .then(function (html) {
+          $('qoj-status').textContent = '浏览器里拉 standings…';
+          return qojParseContestsList(html, contestId);
+        });
+      var standingsP = qojFetchHtml('https://qoj.ac/results/QOJ' + contestId, cookie)
+        .then(function (html) { return qojParseStandings(html, username); });
+
+      Promise.all([contestPageP, listP, standingsP]).then(function (res) {
+        var entry = qojBuildEntry(res[0], res[1], res[2], contestId, username);
+        $('qoj-status').textContent = '✅ 抓到了，' + entry.problems.length + ' 题';
+        renderQojPreview(entry, contestId);
+        done(true);
+      }).catch(function (e) {
+        var msg = (e && e.message) || String(e);
+        $('qoj-status').textContent = '❌ 抓取失败';
+        W.toast(qojShowCorsHint() + '\n\n[' + msg + ']', true);
+        done(false);
       });
     });
 
     W.wireTokenUI();
+    W.wireQojCookieUI();
     W.wireBeforeUnload(isDirty, saveToGithub);
 
     // 加载已有数据
