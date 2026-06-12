@@ -11,3 +11,6 @@ mkdocs==1.6.1
 mkdocs-material==9.7.6
 mkdocs-material-extensions==1.3.1
 pymdown-extensions==10.21.3
+
+# Wiki backend (Phase 3+)
+fastapi==0.128.8
