@@ -293,3 +293,50 @@ class TestRealSubmissionCodeParser(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSubmissionPagination(unittest.TestCase):
+    """测 QOJ submissions 分页 — QOJ 每页 10 条 (不是 50)."""
+
+    def _make_row(self, sid: int, problem: str, verdict: str, time_str: str) -> str:
+        """造一行 QOJ 提交 row HTML."""
+        return (
+            f'<tr><td><a href="/submission/{sid}">{sid}</a></td>'
+            f'<td><a href="/contest/9999/problem/{problem}">{problem}. Foo</a></td>'
+            f'<td><span class="uoj-username">tarjen</span></td>'
+            f'<td><a href="/submission/{sid}" class="uoj-score">{verdict}</a></td>'
+            f'<td>0:00:01</td><td>1024kb</td><td>1kb</td><td><small>{time_str}</small></td></tr>'
+        )
+
+    def test_paginates_until_page_repeats(self):
+        """QOJ submissions 10/页. 旧版 len<50 判定会漏掉 page 2."""
+        # page 1: 10 subs (sid 100-109)
+        # page 2: 4 subs (sid 110-113)
+        # page 3+: QOJ 重复回退到 page 2
+        page1 = "\n".join(self._make_row(100 + i, "A", "AC", "0:01:00") for i in range(10))
+        page2 = "\n".join(self._make_row(110 + i, "B", "WA", "0:02:00") for i in range(4))
+
+        # page 3+ 都返回 page 2 同样的内容 (QOJ 越界行为)
+        def fetch_fn(url, cookie):
+            if "page=1" in url:
+                return f"<html><table>{page1}</table></html>"
+            else:
+                return f"<html><table>{page2}</table></html>"
+
+        client = QojClient(
+            cookies={"uoj_remember_token": "t",
+                   "uoj_remember_token_checksum": "c",
+                   "UOJSESSID": "s"},
+            request_interval=0,
+            fetch_fn=fetch_fn,
+        )
+        subs = client.get_user_submissions("9999", "tarjen")
+        # 期望: 10 + 4 = 14
+        self.assertEqual(len(subs), 14, f"应抓 14 条, 实际 {len(subs)}")
+        sids = sorted(s.submission_id for s in subs)
+        self.assertEqual(sids[0], "100")
+        self.assertEqual(sids[-1], "113")
+
+
+if __name__ == "__main__":
+    unittest.main()

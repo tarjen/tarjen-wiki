@@ -347,8 +347,13 @@ class QojClient(PlatformClient):
         return self._parse_contest_meta(html, contest_id)
 
     def get_user_submissions(self, contest_id: str, user: str) -> list[Submission]:
-        """抓所有页 (含赛中 + 赛后), 调用方按时间筛."""
-        all_subs = []
+        """抓所有页 (含赛中 + 赛后), 调用方按时间筛.
+
+        QOJ submissions 页每页 10 条 (不是 50). 用"页内 sid 集合不变" 判停:
+        如果连续 2 页返回完全相同的 sid, 就是 QOJ 重复回退到末页, 别再请求.
+        """
+        all_subs: list[Submission] = []
+        prev_sids: set[str] = set()
         page = 1
         while True:
             url = f"/contest/{contest_id}/submissions?user={user}&page={page}"
@@ -356,11 +361,14 @@ class QojClient(PlatformClient):
             subs = self._parse_submission_list(html, contest_id)
             if not subs:
                 break
-            all_subs.extend(subs)
-            if len(subs) < 50:
+            cur_sids = {s.submission_id for s in subs}
+            if cur_sids == prev_sids:
+                # QOJ 把 page 越界请求也回退到末页 (同 page 2 内容)
                 break
+            prev_sids = cur_sids
+            all_subs.extend(subs)
             page += 1
-            if page > 100:
+            if page > 100:  # 安全上限
                 break
         return all_subs
 
