@@ -91,20 +91,27 @@ class App:
         self.watchlist_obj: Watchlist | None = None
         self.codes_store: CodesStore | None = None
 
-    def init(self):
+    def init(self, verbose: bool = False):
         # 重新读 env (每次都读, 支持 REPO_PATH 等环境变量在测试间变化)
         self.repo_path: Path = repo_path()
         self.config_dir: Path = config_dir()
         self.codes_dir: Path = codes_dir()
 
         self.csv = CsvStore(self.repo_path / "contests.csv")
-        self.csv.load()
+        warnings = self.csv.load()
         self.md = MdStore(self.repo_path / "docs" / "contests")
         self.git = GitOps(self.repo_path)
         self.watchlist_obj = Watchlist(self.config_dir / "watchlist.txt")
         self.watchlist_obj.load()
         self.codes_store = CodesStore(self.codes_dir)
         ensure_gitignore(self.codes_dir)
+
+        # CSV warnings 默认静默, --verbose 时显示
+        self._csv_warnings = warnings
+        if verbose and warnings:
+            click.echo(f"\n⚠ CSV 警告 ({len(warnings)} 条):", err=True)
+            for w in warnings:
+                click.echo(f"  {w}", err=True)
 
 
 app = App()
@@ -132,7 +139,10 @@ def load_config_json() -> dict:
 
 
 def get_user(override: str | None, platform: str = "qoj") -> str:
-    """从 CLI 参数或 config 读 user."""
+    """从 CLI 参数或 config 读 user.
+
+    没找到时打印可执行 hint (不是死错), 引导用户修复.
+    """
     if override:
         return override
     cfg = load_config_json()
@@ -145,18 +155,30 @@ def get_user(override: str | None, platform: str = "qoj") -> str:
     legacy = cfg.get(f"{platform}_username")
     if legacy:
         return legacy
+
+    # 没找到: 给出可执行 hint
+    cfg_path = app.config_dir / "config.json"
     click.echo(f"✗ 没指定 user 且 config 里没 default_user.{platform}", err=True)
+    click.echo("", err=True)
+    click.echo("修复方式 (任选一种):", err=True)
+    click.echo(f"  1. 设默认值 (推荐, 以后不用每次传 --user):", err=True)
+    click.echo(f"       wiki config set default_user.{platform} tarjen", err=True)
+    click.echo(f"  2. 临时指定:", err=True)
+    click.echo(f"       wiki update 2564 --user tarjen", err=True)
+    click.echo("", err=True)
+    click.echo(f"当前 config: {cfg_path}", err=True)
     sys.exit(1)
 
 
 # === CLI group ===
 
 @click.group()
+@click.option("--verbose", "-v", is_flag=True, help="显示 CSV 警告等详细信息")
 @click.pass_context
-def cli(ctx):
+def cli(ctx, verbose):
     """Wiki backend CLI."""
     ctx.ensure_object(dict)
-    app.init()
+    app.init(verbose=verbose)
 
 
 # === doctor ===
@@ -512,6 +534,7 @@ def edit(slug):
 def update(cid, platform, user, yes, dry_run, slug):
     """从 OJ 导入一场比赛 (赛时表现)."""
     user = get_user(user, platform)
+    click.echo(f"用户: {user} (platform: {platform})")
 
     try:
         preview = build_update_preview(
@@ -564,6 +587,7 @@ def update(cid, platform, user, yes, dry_run, slug):
 def upsolve(cid_or_slug, platform, user, yes, dry_run, since):
     """检测赛后补题, 更新 contests.csv."""
     user = get_user(user, platform)
+    click.echo(f"用户: {user} (platform: {platform})")
 
     if cid_or_slug.isdigit():
         contest_id, slug = cid_or_slug, None
@@ -833,6 +857,86 @@ def _run_sync():
         capture_output=True,
         timeout=30,
     )
+
+
+# === config ===
+
+@cli.group()
+def config():
+    """管理 ~/.config/wiki/config.json."""
+    pass
+
+
+@config.command("show")
+def config_show():
+    """显示当前 config."""
+    cfg = load_config_json()
+    if not cfg:
+        cfg_path = app.config_dir / "config.json"
+        click.echo(f"(空, 配置文件不存在: {cfg_path})")
+        click.echo("")
+        click.echo("创建方法:")
+        click.echo(f'  mkdir -p {app.config_dir}')
+        click.echo(f'  echo \'{{"default_user": {{"qoj": "tarjen"}}}}\' > {cfg_path}')
+        return
+    click.echo(json.dumps(cfg, ensure_ascii=False, indent=2))
+
+
+@config.command("set")
+@click.argument("key")
+@click.argument("value")
+def config_set(key, value):
+    """设一个 config 项. 例: wiki config set default_user.qoj tarjen."""
+    cfg_path = app.config_dir / "config.json"
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg = load_config_json()
+
+    # 支持点路径: default_user.qoj → {"default_user": {"qoj": ...}}
+    keys = key.split(".")
+    cur = cfg
+    for k in keys[:-1]:
+        if k not in cur or not isinstance(cur[k], dict):
+            cur[k] = {}
+        cur = cur[k]
+    cur[keys[-1]] = value
+
+    cfg_path.write_text(
+        json.dumps(cfg, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    click.echo(f"✓ {key} = {value!r} 写入 {cfg_path}")
+    # 显示更新后的相关部分
+    click.echo(f"  当前值: {cfg}")
+
+
+@config.command("get")
+@click.argument("key")
+def config_get(key):
+    """读一个 config 项."""
+    cfg = load_config_json()
+    keys = key.split(".")
+    cur = cfg
+    for k in keys:
+        if isinstance(cur, dict) and k in cur:
+            cur = cur[k]
+        else:
+            click.echo(f"(未设置)", err=True)
+            sys.exit(1)
+    if isinstance(cur, (dict, list)):
+        click.echo(json.dumps(cur, ensure_ascii=False, indent=2))
+    else:
+        click.echo(cur)
+
+
+@config.command("path")
+def config_path():
+    """显示 config 文件路径."""
+    cfg_path = app.config_dir / "config.json"
+    click.echo(str(cfg_path))
+    if cfg_path.exists():
+        click.echo("(存在)")
+    else:
+        click.echo("(不存在, 跑 wiki config set ... 创建)")
 
 
 # === serve (mkdocs preview, 不是后端) ===

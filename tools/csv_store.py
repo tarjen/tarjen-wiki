@@ -161,17 +161,22 @@ class CsvStore:
 
     # === 读 ===
 
-    def load(self) -> None:
+    def load(self) -> list[str]:
         """加载并校验整个 CSV. 不存在或空文件不报错.
+
+        Returns:
+            warnings: 加载过程中的 warning 列表 (e.g. solved 列与 problems 不一致).
+                      留给调用方决定怎么显示 (默认静默, --verbose 时打印).
 
         Raises:
             CsvValidationError: 任何字段非法
         """
+        warnings: list[str] = []
         self._contests.clear()
 
         if not self.path.exists():
             self._loaded = True
-            return
+            return warnings
 
         with self.path.open("r", encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f)
@@ -183,7 +188,7 @@ class CsvStore:
 
             for i, row in enumerate(reader, start=2):
                 try:
-                    contest = self._parse_row(row, row_num=i)
+                    contest = self._parse_row(row, row_num=i, warnings=warnings)
                 except CsvValidationError:
                     raise
                 except Exception as e:
@@ -193,8 +198,9 @@ class CsvStore:
                 self._contests[contest.slug] = contest
 
         self._loaded = True
+        return warnings
 
-    def _parse_row(self, row: dict, row_num: int) -> Contest:
+    def _parse_row(self, row: dict, row_num: int, *, warnings: list[str]) -> Contest:
         # 必填字段检查
         for fname in ("slug", "name", "date", "total", "problems"):
             if not (row.get(fname) or "").strip():
@@ -266,12 +272,11 @@ class CsvStore:
         )
         contest.recompute_solved()
 
-        # 与 CSV 写入的 solved 不一致时 warn (不报错, 旧数据可能有 bug)
+        # 与 CSV 写入的 solved 不一致时记 warning (不直接 print, 留给调用方)
         if contest.solved != solved_input:
-            print(
-                f"  ⚠ 第 {row_num} 行 {slug}: CSV solved={solved_input} "
-                f"与 problems 算出 {contest.solved} 不一致, 以 problems 为准",
-                file=sys.stderr,
+            warnings.append(
+                f"第 {row_num} 行 {slug}: CSV solved={solved_input} "
+                f"与 problems 算出 {contest.solved} 不一致, 以 problems 为准"
             )
 
         return contest
