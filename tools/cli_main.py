@@ -774,6 +774,9 @@ def codes(cid, platform, user, only_mine, only_watchlist, no_watchlist,
         by_src[f["source"]] += 1
     for src, n in sorted(by_src.items()):
         click.echo(f"  [{src}] {n} 份")
+    # 没新抓到但有 skip = 文件已缓存
+    if result.fetched == 0 and result.skipped_existing > 0 and result.errors == 0:
+        click.echo(f"  💡 全部已缓存, 用 --refresh 强制重抓")
     # error details (前 10 条)
     if result.error_details:
         click.echo("")
