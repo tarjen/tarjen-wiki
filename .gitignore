@@ -6,3 +6,6 @@ site/
 *.swp
 .idea/
 .vscode/
+
+# 临时测试配置
+_test_cfg/

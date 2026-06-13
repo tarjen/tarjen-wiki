@@ -43,6 +43,21 @@ CONTEST_HTML = """
 </body></html>
 """
 
+# Standings 页 mock — 用真实 QOJ 的 JS 数据格式 (score + standings arrays).
+# Tarjen 在 A 一次过 (AC 12:34), B 一次 WA, C 两次 WA (第二次也失败).
+STANDINGS_HTML = """
+<html><body>
+<script>
+standings_version=2;
+standings=[[100,754,["tarjen",1500,2,"tarjen","rgb(0,0,0)",1,""],1,100.0]];
+fullscore=300;
+score={"tarjen":{"0":[100,754,10001,0,100,0,[]],"1":[0,0,10002,1,100,0,[0]],"2":[0,0,10003,2,100,0,[0]]}};
+problems=[100,200,300];
+my_name="tarjen";
+</script>
+</body></html>
+"""
+
 # 赛中提交 (周六 2025-06-07): A AC, B WA, C WA, D WA
 IN_CONTEST_SUBS = """
 <html><body><table>
@@ -172,6 +187,8 @@ def make_mock_factory():
         client = QojClient(cookies=cookies, request_interval=0)
 
         def fetch_fn(url, cookie):
+            if "/standings" in url:
+                return STANDINGS_HTML
             if "/submissions" in url:
                 return mock_make_client.current_subs_html[0]
             if "/submission/" in url:

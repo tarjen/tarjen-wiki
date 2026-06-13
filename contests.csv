@@ -1,24 +1,26 @@
 slug,name,date,solved,total,problems,link,tags
+2026-petrozavodsk-summer-2019-day-2-300iq-contest-2-grand-prix-of,"Petrozavodsk Summer 2019. Day 2. 300iq Contest 2, Grand Prix of Kazan",2026.06.13,3,11,.;O;.;.;.;.;O;.;O;.;.,https://qoj.ac/contest/1357,
+2025-ccpc,2025 CCPC 全国邀请赛（南昌）暨第二届江西省赛,2026.06.13,10,13,O;O;O;O;O;O;O;O;.;.;O;O;.,https://qoj.ac/contest/2521,
 2015-icpc-wf-marrakesh,ACM-ICPC World Finals 2015 – Marrakesh,2025.08.22,10,13,O;O;O;Ø;O;O;O;O;O;O;.;.;.,,#icpc #world-finals #2015
 2016-icpc-wf-phuket,ACM-ICPC World Finals 2016 – Phuket,2025.08.03,7,13,O;O;Ø;O;O;.;O;.;O;.;.;.;.,,#icpc #world-finals #2016
 2017-icpc-wf-rapid-city,ACM-ICPC World Finals 2017 – Rapid City,2025.08.01,7,12,O;Ø;O;O;.;O;O;.;O;.;.;.,,#icpc #world-finals #2017
 2018-icpc-wf-beijing,ACM-ICPC World Finals 2018 – Beijing,2025.07.26,9,11,Ø;Ø;Ø;!;Ø;O;.;Ø;O;Ø;O,,#icpc #world-finals #2018
-2019-icpc-wf-porto,The 2019 ICPC World Finals Porto,2025.7.20,7,12,O;.;O;O;O;.;O;.;O;.;.;.,,#icpc #world-finals #2019
-2022-icpc-moscow,The 2022 ICPC Moscow Regional Contest,2025.7.18,8,12,O;O;O;O;.;O;O;.;O;.;.;.,,#icpc #regional #2022
-2024-icpc-wf-astana,The 2024 ICPC World Finals Astana,2025.7.13,6,12,O;O;O;.;.;O;.;O;.;.;.;.,,#icpc #world-finals #2024
-2018-moscow-red-panda,Moscow Pre-Finals Workshops 2018. Day 3. Moscow SU Red Panda Contest,2025.7.8,7,13,O;.;O;O;.;O;O;.;O;.;.;.;.,,#camp #moscow #2018
-2025-icpc-nac,The 2025 ICPC North America Championship,2025.7.7,7,13,O;O;O;.;.;O;O;O;.;.;.;.;.,,#icpc #nac #2025
+2019-icpc-wf-porto,The 2019 ICPC World Finals Porto,2025.7.20,6,12,O;.;O;O;O;.;O;.;O;.;.;.,,#icpc #world-finals #2019
+2022-icpc-moscow,The 2022 ICPC Moscow Regional Contest,2025.7.18,7,12,O;O;O;O;.;O;O;.;O;.;.;.,,#icpc #regional #2022
+2024-icpc-wf-astana,The 2024 ICPC World Finals Astana,2025.7.13,5,12,O;O;O;.;.;O;.;O;.;.;.;.,,#icpc #world-finals #2024
+2018-moscow-red-panda,Moscow Pre-Finals Workshops 2018. Day 3. Moscow SU Red Panda Contest,2025.7.8,6,13,O;.;O;O;.;O;O;.;O;.;.;.;.,,#camp #moscow #2018
+2025-icpc-nac,The 2025 ICPC North America Championship,2025.7.7,6,13,O;O;O;.;.;O;O;O;.;.;.;.;.,,#icpc #nac #2025
 2024-petrz-summer-day7,Petrozavodsk Summer 2024. Day 7. Farewell Contest,2025.2.22,7,13,O;O;.;O;O;.;O;.;O;.;.;.;Ø,,#camp #petrozavodsk #2024
-2024-swerc,2024-2025 ICPC Southwestern European Regional Contest (SWERC 2024),2025.2.18,8,13,O;O;O;O;.;O;O;.;O;.;.;.;.,,#icpc #swerc #2024
-2017-icpc-asia-tsukuba,"2017-2018 ACM-ICPC, Asia Tsukuba Regional Contest",2025.1.18,7,11,O;O;.;O;O;.;O;O;.;O;O,,#icpc #regional #2017
-2025-heilongjiang-provincial,The 17th Helongjiang Provincial Collegiate Programming Contest,2025.1.15,10,12,O;O;O;O;O;O;O;O;O;O;O;O,,#provincial #2025
-2021-petrz-winter-day1,Petrozavodsk Winter 2021. Day 1. Jagiellonian U Contest,2024.12.26,8,13,O;O;O;.;O;O;O;.;O;.;.;.;.,,#camp #petrozavodsk #2021
-2021-amppz,The 2021 ICPC Polish Collegiate Programming Contest (AMPPZ 2021),2024.12.19,8,13,O;O;O;O;.;.;O;O;.;O;.;.;.,,#amppz #2021
-2024-nerc-finals,"2024-2025 ICPC, NERC, Northern Eurasia Finals",2024.12.18,7,13,O;.;O;O;O;.;O;.;O;.;.;.;.,,#icpc #nerc #2024
-2021-petrz-winter-day3,Petrozavodsk Winter 2021. Day 3: Nordic+ Contest 2020,2024.12.13,6,12,O;O;.;O;.;.;O;O;.;.;.;.,,#camp #petrozavodsk #2021
+2024-swerc,2024-2025 ICPC Southwestern European Regional Contest (SWERC 2024),2025.2.18,7,13,O;O;O;O;.;O;O;.;O;.;.;.;.,,#icpc #swerc #2024
+2017-icpc-asia-tsukuba,"2017-2018 ACM-ICPC, Asia Tsukuba Regional Contest",2025.1.18,8,11,O;O;.;O;O;.;O;O;.;O;O,,#icpc #regional #2017
+2025-heilongjiang-provincial,The 17th Helongjiang Provincial Collegiate Programming Contest,2025.1.15,12,12,O;O;O;O;O;O;O;O;O;O;O;O,,#provincial #2025
+2021-petrz-winter-day1,Petrozavodsk Winter 2021. Day 1. Jagiellonian U Contest,2024.12.26,7,13,O;O;O;.;O;O;O;.;O;.;.;.;.,,#camp #petrozavodsk #2021
+2021-amppz,The 2021 ICPC Polish Collegiate Programming Contest (AMPPZ 2021),2024.12.19,7,13,O;O;O;O;.;.;O;O;.;O;.;.;.,,#amppz #2021
+2024-nerc-finals,"2024-2025 ICPC, NERC, Northern Eurasia Finals",2024.12.18,6,13,O;.;O;O;O;.;O;.;O;.;.;.;.,,#icpc #nerc #2024
+2021-petrz-winter-day3,Petrozavodsk Winter 2021. Day 3: Nordic+ Contest 2020,2024.12.13,5,12,O;O;.;O;.;.;O;O;.;.;.;.,,#camp #petrozavodsk #2021
 2019-amppz,The 2019 Polish Collegiate Programming Contest (AMPPZ 2019),2024.12.11,8,12,O;O;.;O;O;O;O;.;O;O;.;.,,#amppz #2019
-2024-icpc-asia-jakarta,2024-2025 ICPC Asia Jakarta Regional Contest,2024.12.9,10,13,O;O;O;O;O;O;O;O;O;.;.;.;.,,#icpc #regional #2024
-2024-nwerc,2024-2025 ICPC Northwestern Europe Regional Programming Contest (NWERC 2024),2024.12.6,10,13,O;O;O;O;O;O;O;O;O;.;.;.;.,,#icpc #regional #nwerc #2024
-2024-ucp-southwestern-europe,The 3rd Universal Cup. Stage 18: Southwestern Europe,2024.12.3,8,13,O;O;O;.;O;O;O;O;.;.;.;.;.,,#universal-cup #2024
+2024-icpc-asia-jakarta,2024-2025 ICPC Asia Jakarta Regional Contest,2024.12.9,9,13,O;O;O;O;O;O;O;O;O;.;.;.;.,,#icpc #regional #2024
+2024-nwerc,2024-2025 ICPC Northwestern Europe Regional Programming Contest (NWERC 2024),2024.12.6,9,13,O;O;O;O;O;O;O;O;O;.;.;.;.,,#icpc #regional #nwerc #2024
+2024-ucp-southwestern-europe,The 3rd Universal Cup. Stage 18: Southwestern Europe,2024.12.3,7,13,O;O;O;.;O;O;O;O;.;.;.;.;.,,#universal-cup #2024
 2024-icpc-asia-shenyang,The 2024 ICPC Asia Shenyang Regional Programming Contest,2024.11.27,5,13,O;.;O;O;.;O;.;.;.;O;.;.;.,,#icpc #regional #2024
-2024-icpc-asia-taichung,2024 ICPC Asia Taichung Regional Contest,2024.11.24,10,14,O;O;O;O;O;O;O;O;O;.;.;.;.;.,https://codeforces.com/gym/105576,#icpc #regional #2024
+2024-icpc-asia-taichung,2024 ICPC Asia Taichung Regional Contest,2024.11.24,9,14,O;O;O;O;O;O;O;O;O;.;.;.;.;.,https://codeforces.com/gym/105576,#icpc #regional #2024

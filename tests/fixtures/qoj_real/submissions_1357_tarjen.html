@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en" >
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+				<title>Petrozavodsk Summer 2019. Day 2. 300iq Contest 2, Grand Prix of Kazan - Submissions - Contest - QOJ.ac</title>
+		
+		<script type="text/javascript">uojHome = '//qoj.ac'</script>
+	
+		<!-- jQuery (necessary for Bootstrap\'s JavaScript plugins) -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.min.js"></script>
+
+		<!-- jQuery autosize -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.autosize.min.js"></script>		<script type="text/javascript">
+			$(document).ready(function() {
+				$('textarea').autosize();
+			});
+		</script>
+		
+		<!-- jQuery cookie -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.cookie.min.js"></script>		
+		<!-- jQuery modal -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.modal.js"></script>		
+				<!-- Bootstrap core CSS -->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/bootstrap.min.css?v=2019.5.31" />		<!-- Bootstrap Glyphicons CSS-->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/bootstrap-glyphicons.min.css?v=2019.5.31" />
+		<!-- Custom styles for this template -->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/uoj-theme.css?v=4.3.2" />		<!-- Include all compiled plugins (below), or include individual files as needed -->
+		<script type="text/javascript" src="//qoj.ac/js/popper.min.js?v=2019.5.31"></script>		<script type="text/javascript" src="//qoj.ac/js/bootstrap.min.js?v=2019.5.31"></script>		
+		<!-- Color converter -->
+		<script type="text/javascript" src="//qoj.ac/js/color-converter.min.js"></script>		
+		<!-- uoj -->
+		<script type="text/javascript" src="//qoj.ac/js/uoj.js?v=2026.06.10"></script>		
+		<!-- readmore -->
+		<script type="text/javascript" src="//qoj.ac/js/readmore/readmore.min.js"></script>		
+		<!-- LAB -->
+		<script type="text/javascript" src="//qoj.ac/js/LAB.min.js"></script>
+		<link rel="shortcut icon" href="/" />
+
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/flag-icon-css/css/flag-icon.css" />		
+				
+		
+<link type="text/css" rel="stylesheet" href="//qoj.ac/css/font-awesome/5.13.0/all.min.css" />
+				
+				
+				
+				<!-- MathJax -->
+		<script type="text/x-mathjax-config">
+			MathJax.Hub.Config({
+				showProcessingMessages: false,
+				tex2jax: {
+					inlineMath: [["$", "$"], ["\\\\(", "\\\\)"]],
+					processEscapes:true
+				},
+				menuSettings: {
+					zoom: "Hover"
+    			}
+			});
+		</script>
+		<script src="/js/mathjax/MathJax.js?config=TeX-AMS_SVG"></script>
+				
+				
+		
+				
+				
+				
+				
+				<!-- shjs -->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/sh_typical.min.css" />		<script type="text/javascript" src="//qoj.ac/js/sh_main.min.js"></script>		<script type="text/javascript">$(document).ready(function(){sh_highlightDocument()})</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/a11y-light.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+				
+		
+		
+				<!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+		<!--[if lt IE 9]>
+			<script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+			<script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+		<![endif]-->
+		
+		<script type="text/javascript">
+		before_window_unload_message = null;
+		$(window).on('beforeunload', function() {
+			if (before_window_unload_message !== null) {
+			    return before_window_unload_message;
+			}
+		});
+		</script>
+		
+			</head>
+	<body role="document">
+		<div class="container" role="main">
+						<div>
+				<ul class="nav nav-pills float-right" role="tablist">
+									<li class="nav-item dropdown">
+						<a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown">
+<span class="uoj-username" data-user-color="rgb(159, 221, 187)" data-rating="2105" data-nickname="tarjen" data-rated="1">tarjen</span>
+														 						</a>
+						<ul class="dropdown-menu" role="menu">
+							<li role="presentation"><a class="dropdown-item" href="//qoj.ac/user/profile/tarjen"><span class="glyphicon glyphicon-info-sign"></span>My Profile</a></li>
+							<li role="presentation"><a class="dropdown-item" href="//qoj.ac/favourites"><span class="glyphicon glyphicon-star"></span>My Favourites</a></li>
+							<li role="presentation"><a class="dropdown-item" href="//qoj.ac/user/msg/tarjen"><span class="glyphicon glyphicon-envelope"></span>Private Message&nbsp;&nbsp;</a></li>
+							<li role="presentation"><a class="dropdown-item" href="//qoj.ac/user/system-msg"><span class="glyphicon glyphicon-flag"></span>System Message&nbsp;&nbsp;</a></li>
+							<li role="presentation"><a class="dropdown-item" href="//qoj.ac/group/my"><span class="glyphicon glyphicon-user"></span>My Groups</a></li>
+																											</ul>
+					</li>
+					<li class="nav-item" role="presentation"><a class="nav-link" href="//qoj.ac/logout?_token=YTS0JhS9M8ds6Cu36OctuKTCx9Sw6qo0onzwqLdcdvVtwxgK07hBN9IHhD3G">Logout</a></li>
+								</ul>
+				<h1 class="d-none d-sm-block">QOJ.ac</h1>
+				<h1 class="d-block d-sm-none">QOJ</h1>
+			</div>
+			
+			<div class="navbar navbar-light navbar-expand-md bg-light mb-4" role="navigation">
+	<a class="navbar-brand" href="//qoj.ac">QOJ</a>
+	<button type="button" class="navbar-toggler collapsed" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="navbar-toggler-icon"></span>
+	</button>
+	<div class="collapse navbar-collapse" id="navbarSupportedContent">
+				<ul class="nav navbar-nav mr-auto navbar-transparent">
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/contests"><span class="glyphicon glyphicon-stats"></span> Contests</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/category"><span class="glyphicon glyphicon-folder-close"></span> Category</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/problems"><span class="glyphicon glyphicon-list-alt"></span> Problems</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/submissions"><span class="glyphicon glyphicon-tasks"></span> Submissions</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/hacks"><span class="glyphicon glyphicon-flag"></span> Hack!</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/blogs"><span class="glyphicon glyphicon-book"></span> Blogs</a></li>
+
+		</ul>
+		<form id="form-search-problem" class="form-inline my-2 my-lg-0" method="get">
+			 <div class="input-group">
+				<input type="text" class="form-control" name="search" id="input-search" placeholder="Search the problem set" />  
+				<div class="input-group-append">
+					<button type="submit" class="btn btn-search btn-outline-primary" id="submit-search"><span class="glyphicon glyphicon-search"></span></button>
+				</div>
+			</div>
+		</form>
+			</div><!--/.nav-collapse -->
+</div>
+
+<script type="text/javascript">
+	var zan_link = '';
+	$('#form-search-problem').submit(function(e) {
+		e.preventDefault();
+		
+		url = "//qoj.ac/problems";
+		qs = [];
+		$(['search']).each(function () {
+			if ($('#input-' + this).val()) {
+				qs.push(this + '=' + encodeURIComponent($('#input-' + this).val()));
+			}
+		});
+		if (qs.length > 0) {
+			url += '?' + qs.join('&');
+		}
+		location.href = url;
+	});
+</script>
+
+						
+			<div class="uoj-content">
+<div class="text-center">
+	<h1>
+		Petrozavodsk Summer 2019. Day 2. 300iq Contest 2, Grand Prix of Kazan	</h1>
+	<span class="uoj-favourite-block" data-type="C" data-id="1357" data-fav="0" data-logged-in="1"></span>	<div class="uoj-click-zan-block" data-id="1357" data-type="C" data-val="0" data-cnt="6"></div></div>
+		<div class="progress">
+  <div class="progress-bar bg-primary" style="width:100%"></div>
+  </div><div class="row">
+				<div class="col-sm-9">
+						<ul class="nav nav-tabs" role="tablist"><li class="nav-item"><a class="nav-link" href="/contest/1357" role="tab">Dashboard</a></li><li class="nav-item"><a class="nav-link active" href="/contest/1357/submissions" role="tab">Submissions</a></li><li class="nav-item"><a class="nav-link" href="/contest/1357/standings" role="tab">Standings</a></li><li class="nav-item"><a class="nav-link" href="/results/QOJ1357" role="tab">External Standings</a></li><li class="nav-item"><a class="nav-link" href="/contest/1357/discussions" role="tab">Discussions & Issues</a></li></ul>			<div class="top-buffer-md">
+							<div class="checkbox text-right">
+				<label for="input-show_all_submissions"><input type="checkbox" id="input-show_all_submissions" /> Show all submissions</label>
+			</div>
+			<script type="text/javascript">
+				$('#input-show_all_submissions').click(function() {
+					if (this.checked) {
+						$.cookie('show_all_submissions', '');
+					} else {
+						$.removeCookie('show_all_submissions');
+					}
+					location.reload();
+				});
+			</script><div class="table-responsive"><table class="table table-bordered table-hover table-striped table-text-center"><thead><tr><th>ID</th><th>Problem</th><th>Submitter</th><th>Result</th><th>Time</th><th>Memory</th><th>File size</th><th>Submit time</th></tr></thead><tbody><tr><td><a href="/submission/1907042">#1907042</a></td><td><a href="/contest/1357/problem/7416">G. Grammarly</a></td><td><span class="uoj-username" data-user-color="rgb(159, 221, 187)" data-rating="2105" data-nickname="tarjen" data-rated="1">tarjen</span><sup><a href="/contest/1357">#</a></sup></td><td><a href="/submission/1907042" class="uoj-score" data-full="100.000000" data-score="100.000000">AC ✓</a></td><td>25ms</td><td>15976kb</td><td>3.5kb</td><td><small>02:28:08</small></td></tr><tr><td><a href="/submission/1906878">#1906878</a></td><td><a href="/contest/1357/problem/7418">I. Interactive Vertex</a></td><td><span class="uoj-username" data-user-color="rgb(159, 221, 187)" data-rating="2105" data-nickname="tarjen" data-rated="1">tarjen</span><sup><a href="/contest/1357">#</a></sup></td><td><a href="/submission/1906878" class="uoj-score" data-full="100.000000" data-score="100.000000">AC ✓</a></td><td>169ms</td><td>25208kb</td><td>4.2kb</td><td><small>01:39:17</small></td></tr><tr><td><a href="/submission/1906870">#1906870</a></td><td><a href="/contest/1357/problem/7418">I. Interactive Vertex</a></td><td><span class="uoj-username" data-user-color="rgb(159, 221, 187)" data-rating="2105" data-nickname="tarjen" data-rated="1">tarjen</span><sup><a href="/contest/1357">#</a></sup></td><td><a href="/submission/1906870" class="uoj-score" data-full="100.000000" data-score="0">TL </a></td><td>0ms</td><td>3760kb</td><td>4.0kb</td><td><small>01:36:33</small></td></tr><tr><td><a href="/submission/1906653">#1906653</a></td><td><a href="/contest/1357/problem/7411">B. Bitwise Xor</a></td><td><span class="uoj-username" data-user-color="rgb(159, 221, 187)" data-rating="2105" data-nickname="tarjen" data-rated="1">tarjen</span><sup><a href="/contest/1357">#</a></sup></td><td><a href="/submission/1906653" class="uoj-score" data-full="100.000000" data-score="100.000000">AC ✓</a></td><td>75ms</td><td>93976kb</td><td>4.0kb</td><td><small>00:26:27</small></td></tr></tbody></table></div>			</div>
+		</div>
+
+		
+		<div class="col-sm-3">
+			 		<div class="card border-info top-buffer-lg">
+ 			<h4 class="card-header bg-info">
+ 				Contest Ended
+ 			</h4>
+ 		</div>														<h4>
+					Ruleset: ICPC
+				</h4>
+				<ul class="list-group">
+					<li class="list-group-item"> Test full dataset</li>
+					<li class="list-group-item"> Scoreboard available</li>
+					<li class="list-group-item"> Penalty: 20 minute(s)</li>
+					<li class="list-group-item"> Submission limit / problem: 1000</li>
+					<li class="list-group-item"> Scoreboard will be frozen after
+						4:00:00					</li>
+				</ul>
+			
+
+			<div class="top-buffer-sm">
+				<a href="/contest/1357/registrants" class="btn btn-info btn-block">Registrants</a>
+			</div>
+			
+														<br>
+ 		<div class="card border-primary top-buffer-lg">
+ 			<h4 class="card-header bg-primary">
+				Virtual Contest
+ 			</h4>
+			<div class="card-body">	
+			<b>Your participation in the contest has been finished. Click the button below to update your standings.</b><form action="/contest/1357/submissions?user=tarjen" method="post" class="form-horizontal" id="form-finish-panel"><input type="hidden" name="_token" value="YTS0JhS9M8ds6Cu36OctuKTCx9Sw6qo0onzwqLdcdvVtwxgK07hBN9IHhD3G" /><div class="text-center"><button type="submit" id="button-submit-finish-panel" name="submit-finish-panel" value="finish-panel" class="btn btn-secondary">Finish!</button></div></form><script type="text/javascript">
+$(document).ready(function() {
+	$('#form-finish-panel').submit(function(e) {
+		var ok = true;
+		if (ok) {
+			$("#button-submit-finish-panel").addClass('disabled');
+			$(this).submit(function () {
+				return false;
+			});
+		}
+		return ok;
+	});
+});
+</script>			</div>
+ </div>						
+
+																<div class="card border-success top-buffer-lg">
+												<h4 class="card-header bg-success">
+							Attachments						</h4>
+						<div class="list-group">
+																														<a href="/download.php?type=attachments&id=1357&r=0" class="list-group-item list-group-item-action">Statements (en)</a>
+																							<a href="/download.php?type=attachments&id=1357&r=1" class="list-group-item list-group-item-action">Tutorials (en)</a>
+													</div>
+					</div>
+							</div>
+		</div>
+					</div>
+						<div class="uoj-footer">
+				<div class="btn-group dropright mb-3">
+					<button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-toggle="dropdown">
+						<span class="glyphicon glyphicon-globe"></span> English					</button>
+					<div class="dropdown-menu">
+					<a class="dropdown-item" href="//qoj.ac/contest/1357/submissions?user=tarjen&amp;locale=ar">العربية</a>
+						<a class="dropdown-item" href="//qoj.ac/contest/1357/submissions?user=tarjen&amp;locale=en">English</a>
+						<a class="dropdown-item" href="//qoj.ac/contest/1357/submissions?user=tarjen&amp;locale=es">Español</a>
+						<a class="dropdown-item" href="//qoj.ac/contest/1357/submissions?user=tarjen&amp;locale=fr">Français</a>
+						<a class="dropdown-item" href="//qoj.ac/contest/1357/submissions?user=tarjen&amp;locale=ja">日本語</a>
+						<a class="dropdown-item" href="//qoj.ac/contest/1357/submissions?user=tarjen&amp;locale=zh-cn">简体中文</a>
+						<a class="dropdown-item" href="//qoj.ac/contest/1357/submissions?user=tarjen&amp;locale=zh-tw">繁體中文</a>
+					</div>
+				</div>
+				
+				<ul class="list-inline"><li class="list-inline-item">QOJ.ac</li> | <li class="list-inline-item"> <a href="https://qoj.ac">QOJ 4.5.43.0.dev</a> | <a href="https://github.com/UniversalOJ/UOJ-System" target="_blank">Based on UOJ - OpenSource Project</a></li></ul>
+				<p>Made with ❤️ by <a class="uoj-username" href="/user/profile/Qingyu" style="color:rgb(255, 51, 204)">Qingyu✨</a></p>
+				<p>Server Time: 2026-06-13 14:03:18 </a></p>
+			</div>
+					</div>
+		<!-- /container -->
+	<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"62952307bd8640429081742c37f14f92","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a0aee430f8de6ad3',t:'MTc4MTMzMDU5OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

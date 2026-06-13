@@ -101,50 +101,27 @@ CONTEST_HTML = """
 </body></html>
 """
 
-SUBS_HTML = """
-<html><body><table>
-<tr>
-  <th>ID</th><th>Problem</th><th>User</th><th>Verdict</th>
-  <th>Time</th><th>Memory</th><th>Language</th><th>Length</th>
-</tr>
-<tr>
-  <td><a href="/submission/10001">10001</a></td>
-  <td><a href="/contest/2564/problem/A">A</a></td>
-  <td><a href="/user/profile/tarjen">tarjen</a></td>
-  <td>AC</td>
-  <td>0:12:34</td>
-  <td>1024 KB</td>
-  <td>GNU C++17</td>
-  <td>1240</td>
-</tr>
-<tr>
-  <td><a href="/submission/10002">10002</a></td>
-  <td><a href="/contest/2564/problem/B">B</a></td>
-  <td><a href="/user/profile/tarjen">tarjen</a></td>
-  <td>WA</td>
-  <td>0:30:00</td>
-  <td>1024 KB</td>
-  <td>GNU C++17</td>
-  <td>1300</td>
-</tr>
-<tr>
-  <td><a href="/submission/10003">10003</a></td>
-  <td><a href="/contest/2564/problem/B">B</a></td>
-  <td><a href="/user/profile/tarjen">tarjen</a></td>
-  <td>AC</td>
-  <td>0:45:00</td>
-  <td>1024 KB</td>
-  <td>GNU C++17</td>
-  <td>1280</td>
-</tr>
-</table></body></html>
+# Standings JS 数据. 0-indexed 题目 ID 对应字母 A=0, B=1, C=2.
+# tarjen 提交过: A 一次过 (12:34=754s), B WA 后 AC (45:00=2700s, 1 个 failed before),
+# C 没提交. score 字段: [score, time_sec, sub_id, failed_before, full_score, ?, [tags]]
+STANDINGS_HTML = """
+<html><body>
+<script>
+standings_version=2;
+standings=[[200,3454,["tarjen",1500,2,"tarjen","rgb(0,0,0)",1,""],1,100.0]];
+fullscore=300;
+score={"tarjen":{"0":[100,754,10001,0,100,0,[]],"1":[100,2700,10003,1,100,0,[]]}};
+problems=[100,200,300];
+my_name="tarjen";
+</script>
+</body></html>
 """
 
 
 def make_mock_fetch():
     def fetch_fn(url, cookie):
-        if "/contest/2564/submissions" in url:
-            return SUBS_HTML
+        if "/contest/2564/standings" in url:
+            return STANDINGS_HTML
         if "/contest/2564" in url:
             return CONTEST_HTML
         raise Exception(f"unexpected URL: {url}")

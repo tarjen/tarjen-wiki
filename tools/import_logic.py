@@ -23,6 +23,7 @@ upsolve 判定:
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -34,7 +35,7 @@ from csv_store import CsvStore
 from git_ops import GitOps
 
 from platforms import get_client_class
-from platforms.base import PlatformClient, Submission
+from platforms.base import PlatformClient, StandingsEntry, Submission
 
 
 ProblemStatus = Literal["O", "Ø", "!", "."]
@@ -191,12 +192,51 @@ def _filter_in_contest(subs: list[Submission], start: str | None,
     return out
 
 
+def _map_standings_to_problems(
+    standings: dict[str, StandingsEntry], problem_count: int,
+) -> tuple[list[dict], dict]:
+    """把 standings 折叠成 problems 数组 (A B C ...).
+
+    输入: {letter: StandingsEntry} — 只含提交过的题.
+    输出: 每题 status ∈ {O, !, .}, 附带 contest_time + tries.
+    """
+    letters = [chr(ord("A") + i) for i in range(problem_count)]
+    problems = []
+    summary = {"O": 0, "Ø": 0, "!": 0, ".": 0}
+    for letter in letters:
+        e = standings.get(letter)
+        if e is None:
+            problems.append({"letter": letter, "status": ".", "verdict": None,
+                            "tries": 0, "no_submission": True})
+            summary["."] += 1
+            continue
+        if e.score == 100 and e.verdict == "AC":
+            tries = 1 + e.failed_attempts
+            problems.append({
+                "letter": letter, "status": "O", "verdict": "AC",
+                "contest_time": _secs_to_str(e.contest_time_seconds),
+                "tries": tries,
+                "submission_id": e.submission_id,
+            })
+            summary["O"] += 1
+        else:
+            problems.append({
+                "letter": letter, "status": "!", "verdict": e.verdict or "WA",
+                "contest_time": _secs_to_str(e.contest_time_seconds),
+                "tries": 1 + e.failed_attempts,
+                "submission_id": e.submission_id,
+            })
+            summary["!"] += 1
+    return problems, summary
+
+
 def _map_submissions_to_problems(
     subs: list[Submission], problem_count: int,
 ) -> tuple[list[dict], dict]:
     """把 submissions 折叠成 problems 数组 (A B C ...).
 
     每个 problem 取**最晚**一次提交 (同一题可能多次提交).
+    备用方案, upsolve 流程用得到 (per-submission 数据).
     """
     letters = [chr(ord("A") + i) for i in range(problem_count)]
     # 按 problem 分组, 找最晚的 (用 contest_time_seconds, 没就 None)
@@ -294,10 +334,9 @@ def build_update_preview(
                         f"(expected cookies/<platform>.txt)")
 
     meta = client.get_contest_meta(contest_id)
-    subs = client.get_user_submissions(contest_id, user)
-
-    in_window = _filter_in_contest(subs, meta.start_time, meta.end_time)
-    problems, summary = _map_submissions_to_problems(in_window, meta.problem_count)
+    # update 用 standings (结构化 JS 数据, 比 submissions HTML 稳)
+    standings = client.get_user_standings(contest_id, user)
+    problems, summary = _map_standings_to_problems(standings, meta.problem_count)
 
     slug = _slug_from_meta(meta, slug_override)
     slug_exists = csv_store.exists(slug)

@@ -46,6 +46,23 @@ class Submission:
     code_length: int | None = None
 
 
+@dataclass
+class StandingsEntry:
+    """一道题在 standings 里的状态 (含 upsolve).
+
+    QOJ standings JS 数据格式:
+      score={"<user>": {"<pid>": [score, time_sec, sub_id, failed_before, ...]}}
+    """
+    platform: str
+    problem_id: str                   # 0-indexed, 字符串 ("0"-"10")
+    letter: str                       # 映射后: "A", "B", ...
+    score: int                        # 0-100
+    contest_time_seconds: int         # 提交时间 (秒). 0 = 未提交
+    submission_id: str | None
+    failed_attempts: int              # AC 前的失败次数 (0 表示一次就过)
+    verdict: str                      # "AC" / "WA" / "" (not submitted)
+
+
 class PlatformError(RuntimeError):
     """平台特定错误基类."""
 
@@ -89,6 +106,16 @@ class PlatformClient(ABC):
         self, contest_id: str, user: str,
     ) -> list[Submission]:
         """获取某用户在该比赛的所有提交 (赛中 + 赛后, 调用方按时间筛)."""
+
+    @abstractmethod
+    def get_user_standings(
+        self, contest_id: str, user: str,
+    ) -> dict[str, StandingsEntry]:
+        """从 standings (结构化数据) 拿 user 的每题结果.
+
+        返回: {letter: StandingsEntry} — 只包含提交过的题 (没提交的不在 dict 里).
+        用于 wiki update (比 submission HTML 更可靠, 不会被 HTML 微调搞坏).
+        """
 
     @abstractmethod
     def get_submission_code(self, submission_id: str) -> tuple[str, str]:

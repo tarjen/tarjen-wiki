@@ -32,6 +32,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 # tools/ 不是 package, 让 module 形式的调用也能找到兄弟模块
@@ -344,23 +345,68 @@ def show(slug, body):
 # === CRUD: add / set / rm / edit ===
 
 @cli.command()
-@click.option("--slug", required=True)
-@click.option("--name", required=True)
-@click.option("--date", required=True, help="YYYY.M.D")
-@click.option("--total", required=True, type=int)
-@click.option("--problems", required=True, help='分号分隔, 例 "O;O;.;O"')
+@click.option("--slug", default=None, help="不传则进入交互式 prompt (零 flag 也行)")
+@click.option("--name", default=None)
+@click.option("--date", default=None, help="YYYY.M.D")
+@click.option("--total", default=None, type=int)
+@click.option("--problems", default=None, help='分号分隔, 例 "O;O;.;O" — 不传则逐题问')
 @click.option("--tags", default="")
 @click.option("--link", default="")
-@click.option("--body", default=None, help="md 详情页内容")
+@click.option("--body", default=None, help="md 详情页内容 (不传则生成 placeholder)")
 @click.option("--yes", "-y", is_flag=True)
 def add(slug, name, date, total, problems, tags, link, body, yes):
-    """手工新增一场比赛 (不走 QOJ)."""
+    """手工新增一场比赛 (不走 QOJ, 不需要 cookie).
+
+    支持两种用法:
+      1. 交互式 (零 flag): 跑 'wiki add' 一步步问
+      2. 全 flag: 跑 'wiki add --slug X --name Y --date Z ...' 一次给齐
+
+    problems 格式: 分号分隔, 例 'O;O;.;O;!' (O=solved, Ø=upsolve, !=tried, .=untouched)
+    """
     from csv_store import parse_problems
+
+    # 交互模式: 任何缺失的必填字段都问
+    if slug is None:
+        click.echo("📝 手动新增比赛 (输入空行跳过可选字段)")
+        slug = click.prompt("slug (URL-friendly, 例: 2025-icpc-xxx)")
+    if name is None:
+        name = click.prompt("name (比赛名)")
+    if date is None:
+        today = datetime.now().strftime("%Y.%m.%d")
+        date = click.prompt("date (YYYY.M.D)", default=today)
+    if total is None:
+        total = click.prompt("total (题数)", type=int)
+    if problems is None:
+        # 逐题问
+        click.echo(f"逐题填状态 ({total} 题, 默认 . 即未提交):")
+        click.echo("  O = 赛中过,  Ø = 补题过,  ! = 试过没过,  . = 未提交")
+        rows = []
+        for i in range(total):
+            letter = chr(ord("A") + i)
+            v = click.prompt(f"  {letter}", default=".", show_default=False)
+            rows.append(v)
+        problems = ";".join(rows)
+    if not link:
+        link = click.prompt("link (比赛链接, 可空)", default="", show_default=False)
+
     probs = parse_problems(problems)
     contest = Contest(
         slug=slug, name=name, date=date, solved=0, total=total,
         problems=probs, link=link, tags=tags,
     )
+    if app.csv.exists(slug):
+        click.echo(f"✗ slug '{slug}' 已存在, 用 'wiki set' 改而不是 'add'", err=True)
+        sys.exit(1)
+
+    # 预览
+    click.echo()
+    click.echo(f"slug      : {slug}")
+    click.echo(f"name      : {name}")
+    click.echo(f"date      : {date}")
+    click.echo(f"total     : {total}")
+    click.echo(f"problems  : {';'.join(probs)}")
+    click.echo(f"link      : {link}")
+    click.echo(f"tags      : {tags}")
     if not yes and not confirm("确认写入?"):
         click.echo("已取消")
         return
