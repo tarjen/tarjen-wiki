@@ -66,27 +66,62 @@ CODE_BODY = "// fake code for {user}/{problem}"
 
 
 def make_factory():
-    """构造返回 mock QojClient 的 factory."""
+    """构造返回 mock QojClient 的 factory. 覆盖 standings/submissions/code."""
+    from platforms.base import FastestACEntry, StandingsEntry
+
+    def _standings_for(user):
+        """从 MOCK_SUBMISSIONS 算 user 的 standings dict."""
+        result = {}
+        for s in MOCK_SUBMISSIONS:
+            if s.user != user:
+                continue
+            verdict = "AC" if s.verdict == "AC" else "WA"
+            failed = 0  # mock 简化: 不算 failed attempts
+            result[s.problem] = StandingsEntry(
+                platform="qoj",
+                problem_id=str(ord(s.problem) - ord("A")),
+                letter=s.problem,
+                score=100 if s.verdict == "AC" else 0,
+                contest_time_seconds=s.contest_time_seconds or 0,
+                submission_id=s.submission_id,
+                failed_attempts=failed,
+                verdict=verdict,
+            )
+        return result
+
+    def _all_standings(exclude_users):
+        """从 MOCK_SUBMISSIONS 算所有用户每题 AC (按时间排)."""
+        per_prob: dict[str, list[FastestACEntry]] = {}
+        for s in MOCK_SUBMISSIONS:
+            if s.user in exclude_users:
+                continue
+            if s.verdict != "AC":
+                continue
+            per_prob.setdefault(s.problem, []).append(FastestACEntry(
+                user=s.user, time_seconds=s.contest_time_seconds or 0,
+                submission_id=s.submission_id,
+            ))
+        for L in per_prob:
+            per_prob[L].sort(key=lambda e: e.time_seconds)
+        return per_prob
+
     def factory(platform):
         cookies = {"uoj_remember_token": "t", "uoj_remember_token_checksum": "c",
                    "UOJSESSID": "s"}
         client = QojClient(cookies=cookies, request_interval=0)
 
         def fetch_fn(url, cookie):
-            if "/submissions" in url:
-                return ""  # 不解析 HTML, 直接通过 get_user_submissions override
             if "/submission/" in url:
-                # 提取 sid
                 sid = url.rstrip("/").split("/")[-1]
-                # 找对应 submission
                 for s in MOCK_SUBMISSIONS:
                     if s.submission_id == sid:
-                        return f'<pre class="code">{CODE_BODY.format(user=s.user, problem=s.problem)}</pre><div>Language: {s.language or "GNU C++17"}</div>'
+                        return f'<pre><code class="sh_cpp">{CODE_BODY.format(user=s.user, problem=s.problem)}</code></pre><div>Language: {s.language or "GNU C++17"}</div>'
                 raise Exception(f"unknown sid {sid}")
             return "<html></html>"
         client._fetch_fn = fetch_fn
-        # 直接覆盖 get_user_submissions 避免解析 HTML
-        client.get_user_submissions = lambda cid, user: list(MOCK_SUBMISSIONS)
+        # 覆盖 standings API: 从 MOCK_SUBMISSIONS 算
+        client.get_user_standings = lambda cid, user: _standings_for(user)
+        client.get_all_user_standings = lambda cid, exclude_users=None: _all_standings(exclude_users or set())
         return client
     return factory
 
@@ -120,15 +155,15 @@ class TestFetchBasic(unittest.TestCase):
         self.assertEqual(result.errors, 0)
 
         # 文件存在
-        self.assertTrue(self.codes.exists("2564", "tarjen", "A"))
-        self.assertTrue(self.codes.exists("2564", "tarjen", "D"))  # 自己 WA 也存
-        self.assertTrue(self.codes.exists("2564", "alice", "A"))
-        self.assertTrue(self.codes.exists("2564", "alice", "B"))
-        self.assertTrue(self.codes.exists("2564", "bob", "A"))
-        self.assertTrue(self.codes.exists("2564", "carol", "A"))
+        self.assertTrue(self.codes.exists("qoj", "2564", "A", "tarjen"))
+        self.assertTrue(self.codes.exists("qoj", "2564", "D", "tarjen"))  # 自己 WA 也存
+        self.assertTrue(self.codes.exists("qoj", "2564", "A", "alice"))
+        self.assertTrue(self.codes.exists("qoj", "2564", "B", "alice"))
+        self.assertTrue(self.codes.exists("qoj", "2564", "A", "bob"))
+        self.assertTrue(self.codes.exists("qoj", "2564", "A", "carol"))
 
         # 自己的源码标记
-        files = self.codes.list_files("2564")
+        files = self.codes.list_files("qoj", "2564")
         by_user = {f.user: f for f in files}
         self.assertEqual(by_user["tarjen"].source, "mine")
         self.assertEqual(by_user["alice"].source, "watchlist")
@@ -163,8 +198,8 @@ class TestFetchBasic(unittest.TestCase):
         # 总共 2 + 2 = 4
         self.assertEqual(result.fetched, 4)
         # alice A 不在 (因为 carol 更快), alice B 在 (B 题只有 alice)
-        self.assertFalse(self.codes.exists("2564", "alice", "A"))
-        self.assertTrue(self.codes.exists("2564", "alice", "B"))
+        self.assertFalse(self.codes.exists("qoj", "2564", "A", "alice"))
+        self.assertTrue(self.codes.exists("qoj", "2564", "B", "alice"))
 
     def test_no_others(self):
         req = FetchRequest(platform="qoj", cid="2564", username="tarjen",
@@ -172,7 +207,7 @@ class TestFetchBasic(unittest.TestCase):
         result = fetch_codes(req, make_factory(), self.codes, self.watchlist)
         # 自己 + watchlist = 5 (tarjen A+D, alice A+B, bob A)
         self.assertEqual(result.fetched, 5)
-        self.assertFalse(self.codes.exists("2564", "carol", "A"))
+        self.assertFalse(self.codes.exists("qoj", "2564", "A", "carol"))
 
     def test_others_n(self):
         req = FetchRequest(platform="qoj", cid="2564", username="tarjen",
@@ -183,7 +218,7 @@ class TestFetchBasic(unittest.TestCase):
         # = 2 + 3 + 1 = 6
         self.assertEqual(result.fetched, 6)
         # carol 在 others 里只有 A
-        self.assertTrue(self.codes.exists("2564", "carol", "A"))
+        self.assertTrue(self.codes.exists("qoj", "2564", "A", "carol"))
 
     def test_filter_by_problems(self):
         req = FetchRequest(platform="qoj", cid="2564", username="tarjen",
@@ -191,8 +226,8 @@ class TestFetchBasic(unittest.TestCase):
         result = fetch_codes(req, make_factory(), self.codes, self.watchlist)
         # 只抓 A 题: tarjen A, alice A, bob A, carol A = 4
         self.assertEqual(result.fetched, 4)
-        self.assertFalse(self.codes.exists("2564", "tarjen", "D"))
-        self.assertFalse(self.codes.exists("2564", "alice", "B"))
+        self.assertFalse(self.codes.exists("qoj", "2564", "D", "tarjen"))
+        self.assertFalse(self.codes.exists("qoj", "2564", "B", "alice"))
 
 
 class TestTaskManagement(unittest.TestCase):

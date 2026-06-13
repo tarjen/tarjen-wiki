@@ -42,6 +42,7 @@ from .base import (
     CFBlockedError,
     ContestMeta,
     CookieExpiredError,
+    FastestACEntry,
     NotFoundError,
     ParseError,
     PlatformClient,
@@ -412,6 +413,56 @@ class QojClient(PlatformClient):
     def get_submission_code(self, submission_id: str) -> tuple[str, str]:
         html = self._fetch(f"/submission/{submission_id}")
         return self._parse_code(html)
+
+    def get_all_user_standings(self, contest_id: str,
+                                exclude_users: set[str] | None = None
+                                ) -> dict[str, list["FastestACEntry"]]:
+        """从 standings JS 数据找每题所有 AC, 按时间排序.
+
+        返回: {letter: [FastestACEntry, ...]}  —  时间从小到大 (最快在前)
+        exclude_users: 跳过这些用户 (通常传入 {username} 排除自己)
+        用于"每题最快 AC"采样.
+        """
+        exclude_users = exclude_users or set()
+        # 1. 拿 contest 字母顺序
+        meta_html = self._fetch(f"/contest/{contest_id}")
+        letters = self._extract_problem_letters(meta_html)
+        # 2. 拿 standings, 解析全部 score
+        standings_html = self._fetch(f"/contest/{contest_id}/standings")
+        m = RE_STANDINGS_JS.search(standings_html)
+        if not m:
+            raise ParseError("找不到 standings JS 数据")
+        all_score = parse_qoj_js_literal(m.group(2))
+
+        # 3. 对每题, 收集所有 AC user/time/sub_id
+        per_problem: dict[str, list[FastestACEntry]] = {L: [] for L in letters}
+        for user, user_score in all_score.items():
+            if user in exclude_users:
+                continue
+            if not isinstance(user_score, dict):
+                continue
+            for pid_str, entry in user_score.items():
+                try:
+                    pid = int(pid_str)
+                except (ValueError, TypeError):
+                    continue
+                if pid < 0 or pid >= len(letters):
+                    continue
+                if not (isinstance(entry, (list, tuple)) and len(entry) >= 3):
+                    continue
+                score_val, time_sec, sub_id = entry[0], entry[1], entry[2]
+                if score_val != 100:  # 不是 AC
+                    continue
+                letter = letters[pid]
+                per_problem[letter].append(FastestACEntry(
+                    user=user,
+                    time_seconds=time_sec or 0,
+                    submission_id=str(sub_id) if sub_id and sub_id != -1 else "",
+                ))
+        # 4. 按时间排序
+        for L in per_problem:
+            per_problem[L].sort(key=lambda e: e.time_seconds)
+        return per_problem
 
     # === HTTP ===
 

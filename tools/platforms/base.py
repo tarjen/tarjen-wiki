@@ -63,6 +63,18 @@ class StandingsEntry:
     verdict: str                      # "AC" / "WA" / "" (not submitted)
 
 
+@dataclass
+class FastestACEntry:
+    """一道题所有 AC 之一 (用于"每题最快"采样).
+
+    来自 standings score 数据:
+      score={"<user>": {"<pid>": [score=100, time_sec, sub_id, ...]}}
+    """
+    user: str
+    time_seconds: int                 # 提交时间 (秒). 0 = 未提交/异常
+    submission_id: str                # 空 = 数据缺失
+
+
 class PlatformError(RuntimeError):
     """平台特定错误基类."""
 
@@ -115,6 +127,16 @@ class PlatformClient(ABC):
 
         返回: {letter: StandingsEntry} — 只包含提交过的题 (没提交的不在 dict 里).
         用于 wiki update (比 submission HTML 更可靠, 不会被 HTML 微调搞坏).
+        """
+
+    @abstractmethod
+    def get_all_user_standings(
+        self, contest_id: str, exclude_users: set[str] | None = None,
+    ) -> dict[str, list[FastestACEntry]]:
+        """从 standings 拿所有用户的 AC, 按时间排序. 用于"每题最快"采样.
+
+        返回: {letter: [FastestACEntry, ...]}  —  时间从小到大
+        exclude_users: 跳过这些用户名 (一般传 {self_username} 排除自己)
         """
 
     @abstractmethod

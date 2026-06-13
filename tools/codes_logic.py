@@ -27,7 +27,7 @@ from typing import Literal
 from csv_store import CsvStore
 from codes_store import CodesStore
 from platforms import get_client_class
-from platforms.base import PlatformClient, Submission
+from platforms.base import FastestACEntry, PlatformClient, Submission
 from watchlist import Watchlist
 
 
@@ -131,46 +131,63 @@ def fetch_codes(
     result = FetchResult()
     wl_users = set(watchlist_obj.users())
 
-    # 1. 抓所有 AC 提交 (翻页由 client 自己处理)
+    # 1. 拿 client
     client = platform_client_factory(req.platform)
+    platform = req.platform
+
+    # 2. 拿所有 AC (含自己/watchlist/others), 用 standings 数据 (结构化, 免 HTML 分页)
+    #    - mine: 用 get_user_standings (含 WAs/fails), 转成 "submission-like" 列表
+    #    - others: 用 get_all_user_standings 拿所有用户 AC, 按时间排
     try:
-        all_subs = client.get_user_submissions(req.cid, req.username)
+        # 自己: 拿所有 StandingsEntry (含 WAs)
+        my_standings = client.get_user_standings(req.cid, req.username) if req.fetch_self else {}
+        # 所有用户的 AC (排除自己), 按时间排
+        others_per_problem = client.get_all_user_standings(
+            req.cid, exclude_users={req.username}
+        ) if req.fetch_others != "none" else {}
     except Exception as e:
         result.errors += 1
         result.duration_seconds = time.time() - start
         raise
 
-    # 2. 过滤: 限定题目
-    if req.problems:
-        all_subs = [s for s in all_subs if s.problem in req.problems]
-
-    # 3. 分桶
-    mine_subs = []
+    # 3. 自己: 转 submission 列表 (含 WAs, 用于复盘)
+    mine_subs = _standings_to_subs(my_standings, req.username, req.problems)
+    # watchlist: 需要按用户名拿 — 复用 get_user_standings (一个个)
     watchlist_subs = []
-    others_subs = []
-    for s in all_subs:
-        if req.fetch_self and s.user == req.username:
-            mine_subs.append(s)
-        elif req.fetch_watchlist and s.user in wl_users:
-            watchlist_subs.append(s)
-        else:
-            others_subs.append(s)
+    if req.fetch_watchlist:
+        for u in wl_users:
+            if u == req.username:
+                continue  # 已在 mine
+            try:
+                u_standings = client.get_user_standings(req.cid, u)
+            except Exception as e:
+                result.errors += 1
+                result.error_details.append({
+                    "submission_id": "?", "user": u, "problem": "?",
+                    "error": f"get_user_standings: {type(e).__name__}: {e}",
+                })
+                continue
+            for entry in u_standings.values():
+                if req.problems and entry.letter not in req.problems:
+                    continue
+                if entry.verdict == "AC":  # watchlist 只看 AC
+                    watchlist_subs.append(_entry_to_sub(entry, u))
 
-    # 4. 自己: 取所有
-    my_files = []
-    for s in mine_subs:
-        if cancel_check and cancel_check():
-            break
-        my_files.append(s)
-    # watchlist: 取所有 AC
-    wl_files = []
-    for s in watchlist_subs:
-        if cancel_check and cancel_check():
-            break
-        if s.verdict == "AC":
-            wl_files.append(s)
-    # others: 折叠 + top N
-    others_files = _pick_others(others_subs, req.fetch_others, req.others_n)
+    # 4. others: 从 standings 选 top N
+    #    - 自己永远排除
+    #    - watchlist 用户只在 fetch_watchlist=True 时排除
+    #    (watchlist=False 时, watchlist 用户降级到 others — 跟旧行为一致)
+    others_exclude = {req.username}
+    if req.fetch_watchlist:
+        others_exclude |= wl_users
+    others_files = _pick_others_from_standings(
+        others_per_problem, req.fetch_others, req.others_n,
+        req.problems, exclude_users=others_exclude,
+    )
+
+    # 5. 合并去重 (按 user+prob)
+    my_files = mine_subs  # 自己所有
+    wl_files = watchlist_subs  # watchlist 的 AC
 
     # 5. 合并去重 (按 user+prob)
     seen: set[tuple[str, str]] = set()
@@ -187,7 +204,7 @@ def fetch_codes(
         if cancel_check and cancel_check():
             break
         # 检查 skip_existing
-        if req.skip_existing and codes_store.exists(req.cid, s.user, s.problem):
+        if req.skip_existing and codes_store.exists(platform, req.cid, s.problem, s.user):
             result.skipped_existing += 1
             continue
 
@@ -206,13 +223,13 @@ def fetch_codes(
         # 决定 source
         if s.user == req.username:
             source = "mine"
-        elif s.user in wl_users:
+        elif s.user in wl_users and req.fetch_watchlist:
             source = "watchlist"
         else:
             source = "sample"
 
         path = codes_store.save(
-            req.cid, s.user, s.problem, code, lang,
+            platform, req.cid, s.problem, s.user, code, lang,
             verdict=s.verdict, submission_id=s.submission_id,
             source=source, contest_time=_secs_to_str(s.contest_time_seconds),
         )
@@ -237,43 +254,71 @@ def fetch_codes(
     return result
 
 
-def _pick_others(subs: list[Submission], mode: str, n: int) -> list[Submission]:
-    """按 mode 从 others 选."""
-    if mode == "none" or not subs:
-        return []
-
-    # 按 (user, problem) 折叠: 取最早的 (contest_time 最小)
-    by_key: dict[tuple[str, str], Submission] = {}
-    for s in subs:
-        key = (s.user, s.problem)
-        cur = by_key.get(key)
-        if cur is None:
-            by_key[key] = s
+def _standings_to_subs(standings: dict, user: str,
+                      problems: list[str] | None) -> list[Submission]:
+    """StandingsEntry dict → Submission 列表 (含 WAs)."""
+    subs = []
+    for letter, entry in standings.items():
+        if problems and letter not in problems:
             continue
-        cur_t = cur.contest_time_seconds if cur.contest_time_seconds is not None else 9999999
-        new_t = s.contest_time_seconds if s.contest_time_seconds is not None else 9999999
-        if new_t < cur_t:
-            by_key[key] = s
+        subs.append(_entry_to_sub(entry, user))
+    return subs
 
-    # 只留 AC
-    acs = [s for s in by_key.values() if s.verdict == "AC"]
-    if not acs:
+
+def _entry_to_sub(entry, user: str) -> Submission:
+    """单个 StandingsEntry → Submission (含 fake sub_id)."""
+    return Submission(
+        platform="qoj",
+        submission_id=entry.submission_id or "",
+        user=user,
+        problem=entry.letter,
+        verdict=entry.verdict or "WA",
+        submitted_at="",
+        contest_time_seconds=entry.contest_time_seconds,
+        language=None,
+        code_length=None,
+    )
+
+
+def _pick_others_from_standings(
+    per_problem: dict[str, list[FastestACEntry]],
+    mode: str, n: int,
+    problems: list[str] | None,
+    exclude_users: set[str],
+) -> list[Submission]:
+    """从 standings 拿的 per_problem 选 others.
+
+    per_problem[letter] 已经是按时间排好序的 (最快在前).
+    """
+    if mode == "none":
         return []
-
-    # 按 problem 分组, 每题选 N
-    by_problem: dict[str, list[Submission]] = {}
-    for s in acs:
-        by_problem.setdefault(s.problem, []).append(s)
-
-    out = []
-    for prob, lst in by_problem.items():
+    out: list[Submission] = []
+    for letter, entries in per_problem.items():
+        if problems and letter not in problems:
+            continue
+        # 排除 self+watchlist
+        candidates = [e for e in entries if e.user not in exclude_users and e.submission_id]
+        if not candidates:
+            continue
         if mode == "top_n_fastest":
-            lst.sort(key=lambda x: x.contest_time_seconds if x.contest_time_seconds is not None else 9999999)
+            pass  # 已经是按时间排, 直接取前 n
         elif mode == "top_n_shortest":
-            lst.sort(key=lambda x: x.code_length if x.code_length is not None else 9999999)
+            # 不知道 code_length, 用 random 退化
+            random.shuffle(candidates)
         elif mode == "random_n":
-            random.shuffle(lst)
-        out.extend(lst[:n])
+            random.shuffle(candidates)
+        for e in candidates[:n]:
+            out.append(Submission(
+                platform="qoj",
+                submission_id=e.submission_id,
+                user=e.user,
+                problem=letter,
+                verdict="AC",
+                submitted_at="",
+                contest_time_seconds=e.time_seconds,
+                language=None,
+                code_length=None,
+            ))
     return out
 
 

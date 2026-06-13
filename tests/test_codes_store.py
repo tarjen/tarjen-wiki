@@ -51,11 +51,11 @@ class TestPathSafety(unittest.TestCase):
 
     def test_save_rejects_dotdot_user(self):
         with self.assertRaises(ValueError):
-            self.store.save(2564, "../escape", "A", "code")
+            self.store.save("qoj", 2564, "A", "../escape", "code")
 
     def test_save_rejects_slash_user(self):
         with self.assertRaises(ValueError):
-            self.store.save(2564, "alice/bob", "A", "code")
+            self.store.save("qoj", 2564, "A", "alice/bob", "code")
 
 
 class TestSaveRead(unittest.TestCase):
@@ -67,33 +67,34 @@ class TestSaveRead(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_save_and_read(self):
-        self.store.save(2564, "alice", "A", "int main(){}", language="GNU C++17")
-        code = self.store.read(2564, "alice", "A")
+        self.store.save("qoj", 2564, "A", "alice", "int main(){}", language="GNU C++17")
+        code = self.store.read("qoj", 2564, "A", "alice")
         self.assertEqual(code, "int main(){}")
 
     def test_save_creates_dirs(self):
-        self.store.save(2564, "alice", "A", "code", language="GNU C++17")
-        p = Path(self.tmp.name) / "2564" / "alice" / "A.cpp"
+        self.store.save("qoj", 2564, "A", "alice", "code", language="GNU C++17")
+        # 新结构: <root>/<platform>/<cid>/<problem>/<user>.<ext>
+        p = Path(self.tmp.name) / "qoj" / "2564" / "A" / "alice.cpp"
         self.assertTrue(p.exists())
 
     def test_read_missing_returns_none(self):
-        self.assertIsNone(self.store.read(2564, "nobody", "Z"))
+        self.assertIsNone(self.store.read("qoj", 2564, "Z", "nobody"))
 
     def test_exists(self):
-        self.assertFalse(self.store.exists(2564, "alice", "A"))
-        self.store.save(2564, "alice", "A", "code")
-        self.assertTrue(self.store.exists(2564, "alice", "A"))
+        self.assertFalse(self.store.exists("qoj", 2564, "A", "alice"))
+        self.store.save("qoj", 2564, "A", "alice", "code")
+        self.assertTrue(self.store.exists("qoj", 2564, "A", "alice"))
 
     def test_save_with_meta(self):
         self.store.save(
-            2564, "alice", "A", "code",
+            "qoj", 2564, "A", "alice", "code",
             language="GNU C++17",
             verdict="AC",
             submission_id="12345",
             source="mine",
             contest_time="0:12",
         )
-        files = self.store.list_files(2564)
+        files = self.store.list_files("qoj", 2564)
         self.assertEqual(len(files), 1)
         f = files[0]
         self.assertEqual(f.user, "alice")
@@ -105,17 +106,18 @@ class TestSaveRead(unittest.TestCase):
         self.assertEqual(f.contest_time, "0:12")
 
     def test_save_overwrites(self):
-        self.store.save(2564, "alice", "A", "old code")
-        self.store.save(2564, "alice", "A", "new code")
-        self.assertEqual(self.store.read(2564, "alice", "A"), "new code")
+        self.store.save("qoj", 2564, "A", "alice", "old code")
+        self.store.save("qoj", 2564, "A", "alice", "new code")
+        self.assertEqual(self.store.read("qoj", 2564, "A", "alice"), "new code")
 
     def test_save_updates_index(self):
-        self.store.save(2564, "alice", "A", "code", language="GNU C++17")
-        idx = self.store.get_index(2564)
+        self.store.save("qoj", 2564, "A", "alice", "code", language="GNU C++17")
+        idx = self.store.get_index("qoj", 2564)
         self.assertEqual(idx["contest_id"], "2564")
         self.assertEqual(len(idx["files"]), 1)
         self.assertEqual(idx["files"][0]["user"], "alice")
-        self.assertEqual(idx["files"][0]["filename"], "A.cpp")
+        # 新结构: 文件名是 <user>.<ext> (不是 <problem>.<ext>)
+        self.assertEqual(idx["files"][0]["filename"], "alice.cpp")
 
 
 class TestListFiles(unittest.TestCase):
@@ -127,37 +129,37 @@ class TestListFiles(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_list_empty(self):
-        self.assertEqual(self.store.list_files(2564), [])
+        self.assertEqual(self.store.list_files("qoj", 2564), [])
 
     def test_list_nonexistent(self):
-        self.assertEqual(self.store.list_files(9999), [])
+        self.assertEqual(self.store.list_files("qoj", 9999), [])
 
     def test_list_all(self):
-        self.store.save(2564, "alice", "A", "code_a", language="GNU C++17", source="mine")
-        self.store.save(2564, "alice", "B", "code_b", language="Python 3", source="mine")
-        self.store.save(2564, "bob", "A", "code_ba", language="GNU C++17",
+        self.store.save("qoj", 2564, "A", "alice", "code_a", language="GNU C++17", source="mine")
+        self.store.save("qoj", 2564, "B", "alice", "code_b", language="Python 3", source="mine")
+        self.store.save("qoj", 2564, "A", "bob", "code_ba", language="GNU C++17",
                        source="watchlist")
-        files = self.store.list_files(2564)
+        files = self.store.list_files("qoj", 2564)
         self.assertEqual(len(files), 3)
 
     def test_list_filter_by_problem(self):
-        self.store.save(2564, "alice", "A", "x")
-        self.store.save(2564, "alice", "B", "y")
-        files = self.store.list_files(2564, problem="A")
+        self.store.save("qoj", 2564, "A", "alice", "x")
+        self.store.save("qoj", 2564, "B", "alice", "y")
+        files = self.store.list_files("qoj", 2564, problem="A")
         self.assertEqual(len(files), 1)
         self.assertEqual(files[0].problem, "A")
 
     def test_list_filter_by_user(self):
-        self.store.save(2564, "alice", "A", "x")
-        self.store.save(2564, "bob", "A", "y")
-        files = self.store.list_files(2564, user="alice")
+        self.store.save("qoj", 2564, "A", "alice", "x")
+        self.store.save("qoj", 2564, "A", "bob", "y")
+        files = self.store.list_files("qoj", 2564, user="alice")
         self.assertEqual(len(files), 1)
         self.assertEqual(files[0].user, "alice")
 
     def test_list_filter_by_source(self):
-        self.store.save(2564, "alice", "A", "x", source="mine")
-        self.store.save(2564, "bob", "A", "y", source="watchlist")
-        files = self.store.list_files(2564, source="mine")
+        self.store.save("qoj", 2564, "A", "alice", "x", source="mine")
+        self.store.save("qoj", 2564, "A", "bob", "y", source="watchlist")
+        files = self.store.list_files("qoj", 2564, source="mine")
         self.assertEqual(len(files), 1)
         self.assertEqual(files[0].user, "alice")
 
@@ -171,21 +173,21 @@ class TestDelete(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_delete_specific(self):
-        self.store.save(2564, "alice", "A", "x")
-        self.store.save(2564, "alice", "B", "y")
-        n = self.store.delete(2564, "alice", "A")
+        self.store.save("qoj", 2564, "A", "alice", "x")
+        self.store.save("qoj", 2564, "B", "alice", "y")
+        n = self.store.delete("qoj", 2564, "A", "alice")
         self.assertEqual(n, 1)
-        self.assertFalse(self.store.exists(2564, "alice", "A"))
-        self.assertTrue(self.store.exists(2564, "alice", "B"))
+        self.assertFalse(self.store.exists("qoj", 2564, "A", "alice"))
+        self.assertTrue(self.store.exists("qoj", 2564, "B", "alice"))
 
     def test_delete_updates_index(self):
-        self.store.save(2564, "alice", "A", "x")
-        self.store.delete(2564, "alice", "A")
-        idx = self.store.get_index(2564)
+        self.store.save("qoj", 2564, "A", "alice", "x")
+        self.store.delete("qoj", 2564, "A", "alice")
+        idx = self.store.get_index("qoj", 2564)
         self.assertEqual(idx["files"], [])
 
     def test_delete_nonexistent_returns_zero(self):
-        self.assertEqual(self.store.delete(2564, "nobody", "Z"), 0)
+        self.assertEqual(self.store.delete("qoj", 2564, "Z", "nobody"), 0)
 
 
 class TestClean(unittest.TestCase):
@@ -197,36 +199,36 @@ class TestClean(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_clean_problem(self):
-        self.store.save(2564, "alice", "A", "x")
-        self.store.save(2564, "alice", "B", "y")
-        n = self.store.clean(2564, user="alice", problem="A")
+        self.store.save("qoj", 2564, "A", "alice", "x")
+        self.store.save("qoj", 2564, "B", "alice", "y")
+        n = self.store.clean("qoj", 2564, user="alice", problem="A")
         self.assertEqual(n, 1)
-        self.assertFalse(self.store.exists(2564, "alice", "A"))
-        self.assertTrue(self.store.exists(2564, "alice", "B"))
+        self.assertFalse(self.store.exists("qoj", 2564, "A", "alice"))
+        self.assertTrue(self.store.exists("qoj", 2564, "B", "alice"))
 
     def test_clean_user(self):
-        self.store.save(2564, "alice", "A", "x")
-        self.store.save(2564, "alice", "B", "y")
-        self.store.save(2564, "bob", "A", "z")
-        n = self.store.clean(2564, user="alice")
+        self.store.save("qoj", 2564, "A", "alice", "x")
+        self.store.save("qoj", 2564, "B", "alice", "y")
+        self.store.save("qoj", 2564, "A", "bob", "z")
+        n = self.store.clean("qoj", 2564, user="alice")
         self.assertEqual(n, 2)
-        self.assertFalse(self.store.exists(2564, "alice", "A"))
-        self.assertTrue(self.store.exists(2564, "bob", "A"))
+        self.assertFalse(self.store.exists("qoj", 2564, "A", "alice"))
+        self.assertTrue(self.store.exists("qoj", 2564, "A", "bob"))
 
     def test_clean_all(self):
-        self.store.save(2564, "alice", "A", "x")
-        self.store.save(2564, "bob", "B", "y")
-        self.store.save(9999, "carol", "A", "z")  # different contest
-        n = self.store.clean(2564)
+        self.store.save("qoj", 2564, "A", "alice", "x")
+        self.store.save("qoj", 2564, "B", "bob", "y")
+        self.store.save("qoj", 9999, "A", "carol", "z")  # different contest
+        n = self.store.clean("qoj", 2564)
         self.assertEqual(n, 2)
         # 9999 不受影响
-        self.assertTrue(self.store.exists(9999, "carol", "A"))
+        self.assertTrue(self.store.exists("qoj", 9999, "A", "carol"))
 
     def test_clean_keeps_index(self):
-        self.store.save(2564, "alice", "A", "x")
-        self.store.clean(2564)
-        # index.json 不会被删
-        idx_path = Path(self.tmp.name) / "2564" / "index.json"
+        self.store.save("qoj", 2564, "A", "alice", "x")
+        self.store.clean("qoj", 2564)
+        # index.json 不会被删 (新结构: qoj/2564/index.json)
+        idx_path = Path(self.tmp.name) / "qoj" / "2564" / "index.json"
         self.assertTrue(idx_path.exists())
 
 

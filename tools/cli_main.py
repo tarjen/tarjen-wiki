@@ -789,19 +789,23 @@ def codes(cid, platform, user, only_mine, only_watchlist, no_watchlist,
 
 @cli.command("codes-list")
 @click.argument("cid")
+@click.option("--platform", default="qoj")
 @click.option("--problem", multiple=True)
 @click.option("--user", multiple=True)
 @click.option("--source", type=click.Choice(["mine", "watchlist", "sample", "other"]))
-def codes_list(cid, problem, user, source):
-    """列出已抓的代码."""
+def codes_list(cid, platform, problem, user, source):
+    """列出已抓的代码.
+
+    新结构: ~/.local/share/wiki/codes/<platform>/<cid>/<problem>/<user>.<ext>
+    """
     files = app.codes_store.list_files(
-        str(cid), problem=list(problem) or None, user=list(user) or None,
+        platform, str(cid),
+        problem=list(problem) or None, user=list(user) or None,
         source=source,
     )
     if not files:
-        click.echo("(空)")
+        click.echo(f"({platform}/{cid} 没缓存)")
         return
-    # 按题号 + user 分组
     from collections import defaultdict
     by_prob = defaultdict(list)
     for f in files:
@@ -809,19 +813,21 @@ def codes_list(cid, problem, user, source):
     for prob in sorted(by_prob.keys()):
         click.echo(f"\n{prob} 题 ({len(by_prob[prob])} 份):")
         for f in sorted(by_prob[prob], key=lambda x: x.user):
-            click.echo(f"  [{f.source:9}] {f.user:15} {f.problem}.{_ext(f.path)} "
-                      f"({f.size}B)")
+            time = f" @ {f.contest_time}" if f.contest_time else ""
+            click.echo(f"  [{f.source:9}] {f.user:20} {f.problem}/{_ext(f.path)} "
+                      f"({f.size}B){time}")
 
 
 @cli.command("codes-show")
 @click.argument("cid")
 @click.argument("user")
 @click.argument("problem")
-def codes_show(cid, user, problem):
+@click.option("--platform", default="qoj")
+def codes_show(cid, user, problem, platform):
     """显示某份代码."""
-    code = app.codes_store.read(str(cid), user, problem)
+    code = app.codes_store.read(platform, str(cid), problem, user)
     if code is None:
-        click.echo(f"✗ 没找到 {cid}/{user}/{problem}", err=True)
+        click.echo(f"✗ 没找到 {platform}/{cid}/{problem}/{user}", err=True)
         sys.exit(1)
     pager = os.environ.get("PAGER", "less")
     subprocess.run([pager], input=code, text=True)
