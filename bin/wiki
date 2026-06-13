@@ -6,12 +6,20 @@
 #
 # 安装:
 #   ./bootstrap.sh   # 装到 ~/.local/bin/wiki
+#
+# Windows 用户: 用 bin\wiki.cmd (cmd/PowerShell) 或 bin\wiki.ps1 (PowerShell)
 
 set -euo pipefail
 
-SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "${BASH_SOURCE[0]}")"
-SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# 找 repo root (此脚本所在目录的上一级, 解析 symlink)
+# 用 cd/pwd 而不是 readlink -f: Git Bash on Windows 没装 coreutils 时 readlink -f 失败
+if command -v readlink >/dev/null 2>&1 && readlink -f / >/dev/null 2>&1; then
+    SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+else
+    SCRIPT_PATH="${BASH_SOURCE[0]}"
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd -P)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 
 PY="$REPO_ROOT/.venv/bin/python"
 if [[ ! -x "$PY" ]]; then

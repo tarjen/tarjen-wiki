@@ -111,6 +111,11 @@ install_cli_wrapper() {
         echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
     fi
     ok "wiki CLI 已装到 $dst"
+
+    # Windows wrapper 提示 (无操作, 仅提醒)
+    if [[ -f "$REPO_ROOT/bin/wiki.cmd" ]]; then
+        ok "Windows wrapper: $REPO_ROOT\\bin\\wiki.cmd (cmd) / wiki.ps1 (PowerShell)"
+    fi
 }
 
 if [[ "$DO_CLI" -eq 1 ]]; then

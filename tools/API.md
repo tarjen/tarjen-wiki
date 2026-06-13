@@ -41,13 +41,30 @@ contests.csv + docs/contests/*.md + git push → GitHub → GH Pages
 ### 启动
 
 ```bash
-# CLI (不需要任何 server)
+# Mac/Linux: bin/wiki (bash)
 wiki doctor
 
-# 后端: 不需要! 全 CLI 直调
-# mkdocs preview (前端静态页, 可选):
-wiki serve               # 跑 mkdocs serve -a 127.0.0.1:8000
+# Windows cmd / PowerShell:
+bin\wiki.cmd doctor
+# 或 PowerShell:
+& .\bin\wiki.ps1 doctor
+
+# mkdocs preview (前端静态页, 可选, 跨平台):
+wiki serve
 ```
+
+### 平台支持
+
+| 平台 | 状态 | 启动方式 |
+|---|---|---|
+| macOS | ✅ 已测 | `wiki xxx` (bin/wiki bash) |
+| Linux | ✅ CI 测 | `wiki xxx` |
+| Windows (Git Bash) | ✅ 应该可以 | `wiki xxx` (同 bash wrapper) |
+| Windows (cmd) | ✅ | `bin\wiki.cmd xxx` |
+| Windows (PowerShell) | ✅ | `& .\bin\wiki.ps1 xxx` |
+
+Python 部分完全跨平台（pathlib / subprocess / urllib 都 OK）。
+Python 代码本身在 macOS / Linux / Windows 都跑同一套，差异只在 wrapper。
 
 ### 环境变量
 

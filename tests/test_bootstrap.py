@@ -42,6 +42,38 @@ class TestBootstrapScript(unittest.TestCase):
         bad_paths = re.findall(r'>\s*["\']?\S*(?:\.token|\.pat|\.gh[-_]token)', text)
         self.assertEqual(bad_paths, [], f"bootstrap should not write token files: {bad_paths}")
 
+
+class TestWindowsWrappers(unittest.TestCase):
+    """Windows wrapper 文件存在性 + 基本健全性."""
+
+    def setUp(self):
+        self.bin = REPO / "bin"
+
+    def test_cmd_exists(self):
+        f = self.bin / "wiki.cmd"
+        self.assertTrue(f.exists(), "bin/wiki.cmd 缺失")
+        text = f.read_text(encoding="utf-8")
+        # 必须能找到 venv python (Windows 路径)
+        self.assertIn(".venv\\Scripts\\python.exe", text)
+        # 必须 -m tools.cli_main
+        self.assertIn("tools.cli_main", text)
+
+    def test_ps1_exists(self):
+        f = self.bin / "wiki.ps1"
+        self.assertTrue(f.exists(), "bin/wiki.ps1 缺失")
+        text = f.read_text(encoding="utf-8")
+        self.assertIn(".venv\\Scripts\\python.exe", text)
+        self.assertIn("tools.cli_main", text)
+
+    def test_bash_wrapper_still_works(self):
+        """bash wrapper 不能 break, 用 cd/pwd 而不是 readlink (Windows Git Bash 没装 coreutils)"""
+        f = self.bin / "wiki"
+        self.assertTrue(f.exists())
+        text = f.read_text(encoding="utf-8")
+        # 必须有 fallback: 当 readlink -f 失败时用 cd/pwd
+        self.assertIn("pwd -P", text)
+        self.assertIn('command -v readlink', text)
+
     def test_runs_python_via_venv_not_system(self):
         """避免污染系统 python。"""
         text = BOOTSTRAP.read_text(encoding="utf-8")

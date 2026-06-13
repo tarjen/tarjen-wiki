@@ -162,13 +162,18 @@ def cli(ctx):
 # === doctor ===
 
 @cli.command()
-def doctor():
+@click.option("--verbose", "-v", is_flag=True, help="详细诊断 (Python 版本, 依赖, 文件权限...)")
+def doctor(verbose):
     """健康检查."""
-    repo_status = app.git.status()
+    import sys as _sys
+    import platform
+
     click.echo(f"✓ 数据 store 加载完成")
     click.echo(f"  仓库: {app.repo_path}")
     click.echo(f"  比赛: {len(app.csv)}")
     click.echo(f"  watchlist: {len(app.watchlist_obj)} 人")
+
+    repo_status = app.git.status()
     if repo_status.clean:
         click.echo(f"  git: {repo_status.branch} clean, ahead={repo_status.ahead}")
     else:
@@ -180,6 +185,61 @@ def doctor():
         click.echo(f"  QOJ cookie: {cookie_path} ({cookie_path.stat().st_size} bytes)")
     else:
         click.echo(f"  QOJ cookie: ✗ 未配置 (跑 wiki cookies import ...)")
+
+    if verbose:
+        click.echo()
+        click.echo("── 详细诊断 ──")
+
+        # Python
+        click.echo(f"  Python: {_sys.version.split()[0]} ({platform.python_implementation()})")
+        click.echo(f"  Platform: {platform.system()} {platform.release()}")
+
+        # 关键依赖
+        deps = ["mkdocs", "click", "pymdownx", "material"]
+        for dep in deps:
+            try:
+                mod = __import__(dep)
+                ver = getattr(mod, "__version__", "?")
+                click.echo(f"  {dep}: {ver} ✓")
+            except ImportError:
+                click.echo(f"  {dep}: ✗ NOT INSTALLED")
+
+        # Git
+        try:
+            r = subprocess.run(["git", "--version"], capture_output=True, text=True,
+                               timeout=5)
+            click.echo(f"  git: {r.stdout.strip()} ✓")
+        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+            click.echo(f"  git: ✗ {e}")
+
+        # venv
+        click.echo(f"  venv: {'✓' if '.venv' in str(Path(_sys.executable)) else '?'} ({_sys.executable})")
+
+        # 文件权限 (Unix only, Windows 会跳过)
+        if platform.system() != "Windows":
+            for p in [cookie_path, app.config_dir / "watchlist.txt"]:
+                if p.exists():
+                    mode = oct(p.stat().st_mode)[-3:]
+                    click.echo(f"  {p}: mode={mode} (期望 600 for cookie)")
+
+        # contests.csv 校验
+        try:
+            n_total = len(app.csv)
+            n_with_body = sum(1 for c in app.csv if app.md.exists(c.slug))
+            click.echo(f"  contests.csv: {n_total} 行, {n_with_body} 有 md 详情页")
+
+            # 找出没 md 的
+            missing = [c.slug for c in app.csv if not app.md.exists(c.slug)][:5]
+            if missing:
+                click.echo(f"  ⚠ 缺 md 的 slug (前 5): {missing}")
+        except Exception as e:
+            click.echo(f"  ⚠ contests.csv 校验失败: {e}")
+
+        # 配置示例
+        click.echo()
+        click.echo("── 配置示例 ──")
+        click.echo(f"  {{\"default_user\": {{\"qoj\": \"tarjen\"}}}}  →  {app.config_dir / 'config.json'}")
+        click.echo(f"  watchlist: {app.config_dir / 'watchlist.txt'} (一行一个用户名)")
 
 
 # === list / show ===
@@ -695,7 +755,11 @@ def cookies_import(file, platform):
     target = app.config_dir / "cookies" / f"{platform}.txt"
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(file, target)
-    target.chmod(0o600)
+    # chmod 600 仅在 Unix 上有效, Windows 会忽略 OSError
+    try:
+        target.chmod(0o600)
+    except (OSError, NotImplementedError):
+        pass
     click.echo(f"✓ 已导入 → {target}")
 
 
