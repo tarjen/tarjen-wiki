@@ -2,9 +2,10 @@
 # bootstrap.sh — 一键环境搭建
 #
 # 用法：
-#   ./bootstrap.sh                # 装 venv + pip install + 跑 sync.py
+#   ./bootstrap.sh                # 装 venv + pip install + 跑 sync.py + 装 wiki CLI
 #   ./bootstrap.sh --serve        # 上面 + mkdocs serve
 #   ./bootstrap.sh --no-sync      # 跳过 sync.py
+#   ./bootstrap.sh --no-cli       # 跳过装 wiki wrapper
 #   ./bootstrap.sh --clean        # 删 .venv 重建
 #
 # 不会触碰 GitHub PAT —— token 在浏览器里填（带密码加密，Dev #4 改的）
@@ -17,11 +18,13 @@ cd "$REPO_ROOT"
 # ---- 解析参数 ----
 DO_SERVE=0
 DO_SYNC=1
+DO_CLI=1
 DO_CLEAN=0
 for arg in "$@"; do
   case "$arg" in
     --serve)    DO_SERVE=1 ;;
     --no-sync)  DO_SYNC=0 ;;
+    --no-cli)    DO_CLI=0 ;;
     --clean)    DO_CLEAN=1 ;;
     -h|--help)
       sed -n '2,12p' "$0"; exit 0 ;;
@@ -89,24 +92,54 @@ if [[ "$DO_SYNC" -eq 1 ]]; then
   fi
 fi
 
-# ---- 6. 完成提示 ----
+# ---- 6. 装 wiki CLI wrapper (bin/wiki) ----
+install_cli_wrapper() {
+    local src="$REPO_ROOT/bin/wiki"
+    local dst_dir="$HOME/.local/bin"
+    local dst="$dst_dir/wiki"
+
+    if [[ ! -x "$src" ]]; then
+        warn "bin/wiki 不存在或不可执行, 跳过"
+        return
+    fi
+    mkdir -p "$dst_dir"
+    ln -sf "$src" "$dst"
+
+    # 提示用户把 ~/.local/bin 加到 PATH (如果没有)
+    if ! echo "$PATH" | tr ':' '\n' | grep -qx "$dst_dir"; then
+        warn "$dst_dir 不在 PATH, 加到 ~/.zshrc 或 ~/.bashrc:"
+        echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+    fi
+    ok "wiki CLI 已装到 $dst"
+}
+
+if [[ "$DO_CLI" -eq 1 ]]; then
+    say "装 wiki CLI wrapper..."
+    install_cli_wrapper
+fi
+
+# ---- 7. 完成提示 ----
 echo
 ok "${BOLD}环境就绪${OFF}"
 echo
 echo "${DIM}常用命令：${OFF}"
-echo "  $VENV/bin/mkdocs serve                # 本地预览（http://127.0.0.1:8000）"
-echo "  $VENV/bin/mkdocs gh-deploy --force --clean  # 部署到 GitHub Pages"
-echo "  $VENV/bin/python tools/sync.py        # contests.csv → docs/"
-echo "  make test                             # 跑全部测试"
+echo "  wiki doctor                          # 健康检查 (会自动起后端)"
+echo "  wiki list                            # 列比赛"
+echo "  wiki update 2564                     # 导入 QOJ 一场比赛"
+echo "  wiki upsolve 2025-icpc-xxx          # 检测补题"
+echo "  wiki serve                           # 前台启动后端 (Ctrl+C 退出)"
+echo
+echo "${DIM}配置位置：${OFF}"
+echo "  ~/.config/wiki/cookies/qoj.txt       # QOJ cookie jar"
+echo "  ~/.config/wiki/watchlist.txt         # 关注用户"
+echo "  ~/.local/share/wiki/wiki.log         # 后端日志"
 echo
 echo "${DIM}GitHub Token：${OFF}"
-echo "  打开 http://127.0.0.1:8000/editor/?view=table"
-echo "  展开底部「⚙ GitHub Token 配置」→ 粘 PAT → 保存"
-echo "  建议接着点「🔒 用密码加密」（关闭浏览器后要密码解锁）"
+echo "  打开 http://127.0.0.1:8001/healthz 检查, 或编辑 ~/.config/wiki/config.json 加 GH token"
 echo
 
-# ---- 7. --serve ----
+# ---- 8. --serve ----
 if [[ "$DO_SERVE" -eq 1 ]]; then
-  say "启动 mkdocs serve (Ctrl+C 退出)..."
-  exec "$VENV/bin/mkdocs" serve
+    say "启动 mkdocs serve (Ctrl+C 退出)..."
+    exec "$VENV/bin/mkdocs" serve
 fi

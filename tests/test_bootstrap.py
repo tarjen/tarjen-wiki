@@ -29,7 +29,7 @@ class TestBootstrapScript(unittest.TestCase):
 
     def test_handles_known_flags(self):
         text = BOOTSTRAP.read_text(encoding="utf-8")
-        for flag in ("--serve", "--no-sync", "--clean", "-h", "--help"):
+        for flag in ("--serve", "--no-sync", "--no-cli", "--clean", "-h", "--help"):
             self.assertIn(flag, text, f"bootstrap.sh should handle {flag}")
 
     def test_does_not_ask_for_or_write_github_token(self):

@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# bin/wiki — Wiki CLI 入口 wrapper
+#
+# 行为:
+#   1. 检查后端是否在 127.0.0.1:8001 运行
+#   2. 如果不通, 后台启动 (nohup), 写到 $WIKI_LOG
+#   3. 转发所有参数到 python -m tools.cli_main
+#
+# 安装:
+#   ./bootstrap.sh --install-cli    # 装到 ~/.local/bin/wiki
+
+set -euo pipefail
+
+# 找 repo root (此脚本所在目录的上一级, 解析 symlink)
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# 找 venv python
+if [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
+    PY="$REPO_ROOT/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+    PY="$(command -v python3)"
+else
+    echo "✗ 找不到 python (装 venv 或 brew install python)" >&2
+    exit 1
+fi
+
+# 配置 (可被环境变量覆盖)
+: "${WIKI_PORT:=8001}"
+: "${WIKI_BIND:=127.0.0.1}"
+: "${WIKI_LOG:=$HOME/.local/share/wiki/wiki.log}"
+
+mkdir -p "$(dirname "$WIKI_LOG")"
+
+# 检查后端
+check_server() {
+    curl -s -o /dev/null -w "%{http_code}" "http://${WIKI_BIND}:${WIKI_PORT}/healthz" \
+        2>/dev/null | grep -q '^200$' && return 0
+    return 1
+}
+
+# 启动后端 (后台, 不阻塞)
+start_server() {
+    echo "后端未运行, 启动中..." >&2
+
+    cd "$REPO_ROOT"
+
+    # 设环境变量给 server
+    export REPO_PATH="$REPO_ROOT"
+    export CONFIG_DIR="${CONFIG_DIR:-$HOME/.config/wiki}"
+    export CODES_DIR="${CODES_DIR:-$HOME/.local/share/wiki/codes}"
+    export BIND="$WIKI_BIND"
+    export PORT="$WIKI_PORT"
+
+    # 后台启动
+    nohup "$PY" -m tools.server >>"$WIKI_LOG" 2>&1 &
+    SERVER_PID=$!
+    disown $SERVER_PID 2>/dev/null || true
+
+    # 等 server 起来 (最多 10 秒)
+    for _ in $(seq 1 50); do
+        if check_server; then
+            echo "✓ 后端已启动 (pid $SERVER_PID, log: $WIKI_LOG)" >&2
+            return 0
+        fi
+        sleep 0.2
+    done
+
+    echo "✗ 后端启动超时, 看日志: $WIKI_LOG" >&2
+    return 1
+}
+
+# serve 命令特殊处理 — 不需要后端, 它就是启后端的
+if [[ "${1:-}" == "serve" ]]; then
+    cd "$REPO_ROOT"
+    exec "$PY" -m tools.cli_main "$@"
+fi
+
+# 其他命令: 确保后端在
+if ! check_server; then
+    start_server
+fi
+
+# 转给 cli_main
+cd "$REPO_ROOT"
+exec "$PY" -m tools.cli_main "$@"

@@ -22,6 +22,11 @@ import sys
 import time
 from pathlib import Path
 
+# tools/ 不是 package, 让 module 形式的调用也能找到兄弟模块
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+
 import click
 import httpx
 
