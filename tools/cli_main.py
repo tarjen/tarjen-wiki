@@ -751,10 +751,16 @@ def codes(cid, platform, user, only_mine, only_watchlist, no_watchlist,
     )
 
     client_factory = lambda p: make_client(p, app.config_dir)
-    progress = {"fetched": 0, "total": 0}
+    progress_state = {"fetched": 0, "total": 0, "current": "?", "last_len": 0}
 
     def on_progress(p):
-        progress.update(p)
+        progress_state.update(p)
+        line = f"  进度 [{progress_state['fetched']}/{progress_state['total']}] {progress_state['current'][:40]:<40}"
+        pad = " " * max(0, progress_state["last_len"] - len(line))
+        sys.stdout.write("\r" + line + pad)
+        sys.stdout.flush()
+        progress_state["last_len"] = len(line)
+    progress_callback = on_progress
 
     click.echo(f"抓取 {platform}/contest/{cid} (用户 {user})...")
 
@@ -764,8 +770,12 @@ def codes(cid, platform, user, only_mine, only_watchlist, no_watchlist,
     except Exception as e:
         click.echo(f"✗ {type(e).__name__}: {e}", err=True)
         sys.exit(1)
+    finally:
+        # 清掉进度行, 让 summary 重新起一行
+        sys.stdout.write("\r" + " " * progress_state["last_len"] + "\r")
+        sys.stdout.flush()
 
-    click.echo(f"\n完成: 抓 {result.fetched}, 跳过 {result.skipped_existing}, "
+    click.echo(f"完成: 抓 {result.fetched}, 跳过 {result.skipped_existing}, "
               f"错误 {result.errors} ({result.duration_seconds:.1f}s)")
     # by source
     by_src = {}
