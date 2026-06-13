@@ -638,14 +638,15 @@ def import_update_apply(body: UpdateApplyRequest):
     platform = preview_dict.get("platform", body.platform)
 
     # 重建 preview 对象 (避免序列化/反序列化失真)
+    contest_nested = preview_dict.get("contest", {})
     preview = UpdatePreview(
         platform=platform,
-        contest_id=preview_dict["contest_id"],
+        contest_id=preview_dict.get("contest_id") or contest_nested.get("contest_id", ""),
         username=preview_dict.get("username", ""),
         record_state=preview_dict.get("record_state", "create_new"),
         slug=preview_dict.get("slug", ""),
         slug_exists=preview_dict.get("slug_exists", False),
-        contest=preview_dict.get("contest", {}),
+        contest=contest_nested,
         problems=preview_dict.get("problems", []),
         summary=preview_dict.get("summary", {}),
         suggested=preview_dict.get("suggested", {}),
