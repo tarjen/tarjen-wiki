@@ -14,7 +14,7 @@
 <!-- SYNC:CONTESTS-START -->
 | 比赛 | 日期 | 题数 |  | A | B | C | D | E | F | G | H | I | J | K | L | M | N |
 |:-----|:----:|:----:|:---:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| [Petrozavodsk Summer 2019. Day 2. 300iq Contest 2, Grand Prix of Kazan](contests/2026-petrozavodsk-summer-2019-day-2-300iq-contest-2-grand-prix-of.md) | 2026.06.13 | 3/3/11 | [✎](editor/?slug=2026-petrozavodsk-summer-2019-day-2-300iq-contest-2-grand-prix-of&_t=be77de) | . | O | . | . | . | . | O | . | O | . | . |  |  |  |
+| [Petrozavodsk Summer 2019. Day 2. 300iq Contest 2, Grand Prix of Kazan](contests/2026-petrozavodsk-summer-2019-day-2-300iq-contest-2-grand-prix-of.md) | 2026.06.13 | 4/3/11 | [✎](editor/?slug=2026-petrozavodsk-summer-2019-day-2-300iq-contest-2-grand-prix-of&_t=be77de) | . | O | . | . | . | Ø | O | . | O | . | . |  |  |  |
 | [2025 CCPC 全国邀请赛（南昌）暨第二届江西省赛](contests/2025-ccpc.md) | 2026.06.13 | 10/10/13 | [✎](editor/?slug=2025-ccpc&_t=be77de) | O | O | O | O | O | O | O | O | . | . | O | O | . |  |
 | [ACM-ICPC World Finals 2015 – Marrakesh](contests/2015-icpc-wf-marrakesh.md) | 2025.08.22 | 10/9/13 | [✎](editor/?slug=2015-icpc-wf-marrakesh&_t=be77de) | O | O | O | Ø | O | O | O | O | O | O | . | . | . |  |
 | [ACM-ICPC World Finals 2016 – Phuket](contests/2016-icpc-wf-phuket.md) | 2025.08.03 | 7/6/13 | [✎](editor/?slug=2016-icpc-wf-phuket&_t=be77de) | O | O | Ø | O | O | . | O | . | O | . | . | . | . |  |
@@ -44,7 +44,7 @@
 ## 统计
 
 - 累计场次：<!-- SYNC:COUNT -->25<!-- /SYNC:COUNT -->
-- 累计通过：约 <!-- SYNC:SOLVED -->182<!-- /SYNC:SOLVED --> 题
+- 累计通过：约 <!-- SYNC:SOLVED -->183<!-- /SYNC:SOLVED --> 题
 
 ## 维护说明
 
