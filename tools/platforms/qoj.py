@@ -158,6 +158,61 @@ RE_CODE_LANG = re.compile(
     re.MULTILINE,
 )
 
+# 语言标签 → 文件扩展名 (QOJ 抓代码时推断)
+LANG_EXT = {
+    "GNU C++17": "cpp", "GNU C++14": "cpp", "GNU C++11": "cpp", "GNU C++": "cpp",
+    "C++17": "cpp", "C++": "cpp",
+    "GNU C11": "c", "C": "c",
+    "Python 3": "py", "Python 2": "py", "PyPy 3": "py",
+    "Java 17": "java", "Java 11": "java", "Java 8": "java",
+    "Rust": "rs", "Go": "go",
+    "Kotlin": "kt", "JavaScript": "js", "TypeScript": "ts",
+    "C#": "cs", "Ruby": "rb", "PHP": "php",
+}
+
+# highlight.js sh_xxx class → 人类可读语言名
+SH_CLASS_TO_LANG = {
+    "sh_cpp": "C++", "sh_c": "C",
+    "sh_python": "Python", "sh_python3": "Python 3", "sh_pypy": "PyPy",
+    "sh_java": "Java", "sh_rust": "Rust", "sh_go": "Go",
+    "sh_kotlin": "Kotlin", "sh_csharp": "C#", "sh_js": "JavaScript",
+    "sh_ts": "TypeScript", "sh_ruby": "Ruby", "sh_php": "PHP",
+}
+
+
+def lang_to_ext(lang: str | None) -> str:
+    """平台语言标签 → 文件扩展名. 推断不出就 .txt."""
+    if not lang:
+        return "txt"
+    if lang in LANG_EXT:
+        return LANG_EXT[lang]
+    low = lang.lower()
+    if "c++" in low or "cpp" in low or "g++" in low:
+        return "cpp"
+    if "python" in low or "pypy" in low:
+        return "py"
+    if "java" in low:
+        return "java"
+    if "rust" in low:
+        return "rs"
+    if " go " in f" {low} " or low.startswith("go "):
+        return "go"
+    if "ruby" in low:
+        return "rb"
+    if "php" in low:
+        return "php"
+    if "kotlin" in low:
+        return "kt"
+    if "javascript" in low:
+        return "js"
+    if "typescript" in low:
+        return "ts"
+    if "csharp" in low or "c#" in low:
+        return "cs"
+    if low.startswith("c"):
+        return "c"
+    return "txt"
+
 
 # === Cookie 加载 (Netscape 格式) ===
 
@@ -622,25 +677,45 @@ class QojClient(PlatformClient):
         return subs
 
     def _parse_code(self, html: str) -> tuple[str, str]:
-        # 找所有 <pre>...</pre>, 取最长的 (代码块, 排除 UI 小块)
-        candidates = RE_CODE_BLOCK.findall(html)
-        if not candidates:
-            raise ParseError("找不到 <pre> 块")
-        # 取最长且看起来像代码 (>100 chars, 至少有 ; { ( 等代码字符)
-        def looks_like_code(s: str) -> int:
-            s2 = html_unescape(s).strip()
-            if len(s2) < 100:
-                return 0
-            # 含常见代码标点
-            score = sum(1 for ch in s2 if ch in ";{}()[]#=<>")
-            return score
-        code = max(candidates, key=looks_like_code, default="")
-        code = html_unescape(code).strip()
-        if not code:
-            raise ParseError("找不到代码块 (最长 <pre> 也不是代码)")
-        lang_match = RE_CODE_LANG.search(html)
-        language = lang_match.group(1).strip() if lang_match else ""
-        return code, language
+        """解析 QOJ 单份提交页的 source code.
+
+        真实 QOJ 页面结构:
+          - 正常题: 97 个 <pre> (1 个 source code + 96 个 test data blocks)
+                    唯一带 class="sh_xxx" (highlight.js) 的是 source code
+          - 特殊判/交互题: 没有 source code, 只有 test data
+                    没有 sh_ 标记
+
+        策略: 优先找带 sh_ 标记的 <pre> (真 source code), 找不到就说明这题没
+        公开 source, 抛错让上层记录 (不要 fallback 到 test data).
+        """
+        # 1. 优先: 找 <pre><code class="sh_xxx">...</code></pre> (highlight.js 渲染后)
+        m = re.search(
+            r'<pre[^>]*>\s*<code[^>]*class="(sh_\w+)"[^>]*>(.*?)</code>\s*</pre>',
+            html, re.DOTALL,
+        )
+        if m:
+            code = html_unescape(m.group(2)).strip()
+            sh_class = m.group(1)  # e.g. "sh_cpp"
+            # 推语言: sh_cpp -> C++, sh_python3 -> Python 3
+            language = SH_CLASS_TO_LANG.get(sh_class, sh_class.replace("sh_", ""))
+            if code:
+                return code, language
+        # 2. 兜底: 找 <pre class="code">...</pre> (旧版 QOJ / 老 OJ 风格)
+        m = re.search(
+            r'<pre[^>]*class="[^"]*code[^"]*"[^>]*>(.*?)</pre>',
+            html, re.DOTALL,
+        )
+        if m:
+            code = html_unescape(m.group(1)).strip()
+            if code:
+                lang_match = RE_CODE_LANG.search(html)
+                language = lang_match.group(1).strip() if lang_match else ""
+                return code, language
+        # 3. 都没找到: 这题没 source code (special judge / interactive / 隐藏)
+        raise ParseError(
+            "找不到 source code (页面里没有 sh_ 标记的 <pre>, "
+            "可能是 special judge / 交互题 / 老 submission 不可见)"
+        )
 
     # === 静态工具 ===
 
