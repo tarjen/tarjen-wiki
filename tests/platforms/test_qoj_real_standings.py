@@ -260,3 +260,36 @@ class TestReal2521EdgeCases(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRealSubmissionCodeParser(unittest.TestCase):
+    """解析真实 QOJ submission 页面 (抓代码用)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.html = (FIXTURES / "submission_1336269.html").read_text(encoding="utf-8")
+        cls.client = make_mock_client()
+
+    def test_code_block_extracted(self):
+        """真实 QOJ 用 <pre><code class="sh_cpp">...</code></pre> 包裹代码."""
+        code, lang = self.client._parse_code(self.html)
+        # 应该是真代码, 不是 UI 小块
+        self.assertGreater(len(code), 200)
+        # 看起来像 C++
+        self.assertIn("#include", code)
+        self.assertIn("using namespace std", code)
+
+    def test_picks_longest_pre(self):
+        """UI 里有几个 <pre> 小块 (短), 应该挑最长的那个."""
+        candidates = __import__("platforms.qoj", fromlist=["RE_CODE_BLOCK"]).RE_CODE_BLOCK.findall(self.html)
+        self.assertGreater(len(candidates), 1)  # 至少 2 个 <pre> (UI + code)
+        code, _ = self.client._parse_code(self.html)
+        # 选中的应该 >= 任何 UI <pre>
+        for c in candidates:
+            if len(c) < 100:
+                self.assertGreater(len(code), len(c),
+                    f"代码 ({len(code)}) 应当 > UI <pre> ({len(c)})")
+
+
+if __name__ == "__main__":
+    unittest.main()

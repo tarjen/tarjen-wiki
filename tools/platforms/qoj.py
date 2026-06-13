@@ -144,9 +144,12 @@ RE_SUB_LANG = re.compile(
     r'<td[^>]*>\s*([A-Za-z0-9+#.\s]+?(?:C\+\+|Python|Java|Rust|Go|Pascal|Ruby|Kotlin|Swift|Haskell|Lua)\w*)\s*</td>'
 )
 
-# 单份提交页: 提取代码
+# 单份提交页: 提取代码.
+# 真实 QOJ 用 <pre><code class="sh_cpp">...</code></pre> (highlight.js 渲染后)
+# 也兼容旧版 <pre class="code">...</pre>
+# 启发: 找页面里**最长的** <pre>...</pre> 块 (代码一般 > 200 chars, 短 <pre> 是 UI 元素)
 RE_CODE_BLOCK = re.compile(
-    r'<pre[^>]*class="[^"]*code[^"]*"[^>]*>(.*?)</pre>',
+    r'<pre[^>]*>(?:<code[^>]*>)?(.*?)(?:</code>)?</pre>',
     re.DOTALL,
 )
 RE_CODE_LANG = re.compile(
@@ -560,10 +563,22 @@ class QojClient(PlatformClient):
         return subs
 
     def _parse_code(self, html: str) -> tuple[str, str]:
-        code_match = RE_CODE_BLOCK.search(html)
-        if not code_match:
-            raise ParseError("找不到 <pre class=code> 块")
-        code = html_unescape(code_match.group(1)).strip()
+        # 找所有 <pre>...</pre>, 取最长的 (代码块, 排除 UI 小块)
+        candidates = RE_CODE_BLOCK.findall(html)
+        if not candidates:
+            raise ParseError("找不到 <pre> 块")
+        # 取最长且看起来像代码 (>100 chars, 至少有 ; { ( 等代码字符)
+        def looks_like_code(s: str) -> int:
+            s2 = html_unescape(s).strip()
+            if len(s2) < 100:
+                return 0
+            # 含常见代码标点
+            score = sum(1 for ch in s2 if ch in ";{}()[]#=<>")
+            return score
+        code = max(candidates, key=looks_like_code, default="")
+        code = html_unescape(code).strip()
+        if not code:
+            raise ParseError("找不到代码块 (最长 <pre> 也不是代码)")
         lang_match = RE_CODE_LANG.search(html)
         language = lang_match.group(1).strip() if lang_match else ""
         return code, language

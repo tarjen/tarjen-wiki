@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="en" >
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+				<title>Submission #1336269 - QOJ.ac</title>
+		
+		<script type="text/javascript">uojHome = '//qoj.ac'</script>
+	
+		<!-- jQuery (necessary for Bootstrap\'s JavaScript plugins) -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.min.js"></script>
+
+		<!-- jQuery autosize -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.autosize.min.js"></script>		<script type="text/javascript">
+			$(document).ready(function() {
+				$('textarea').autosize();
+			});
+		</script>
+		
+		<!-- jQuery cookie -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.cookie.min.js"></script>		
+		<!-- jQuery modal -->
+		<script type="text/javascript" src="//qoj.ac/js/jquery.modal.js"></script>		
+				<!-- Bootstrap core CSS -->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/bootstrap.min.css?v=2019.5.31" />		<!-- Bootstrap Glyphicons CSS-->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/bootstrap-glyphicons.min.css?v=2019.5.31" />
+		<!-- Custom styles for this template -->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/uoj-theme.css?v=4.3.2" />		<!-- Include all compiled plugins (below), or include individual files as needed -->
+		<script type="text/javascript" src="//qoj.ac/js/popper.min.js?v=2019.5.31"></script>		<script type="text/javascript" src="//qoj.ac/js/bootstrap.min.js?v=2019.5.31"></script>		
+		<!-- Color converter -->
+		<script type="text/javascript" src="//qoj.ac/js/color-converter.min.js"></script>		
+		<!-- uoj -->
+		<script type="text/javascript" src="//qoj.ac/js/uoj.js?v=2026.06.10"></script>		
+		<!-- readmore -->
+		<script type="text/javascript" src="//qoj.ac/js/readmore/readmore.min.js"></script>		
+		<!-- LAB -->
+		<script type="text/javascript" src="//qoj.ac/js/LAB.min.js"></script>
+		<link rel="shortcut icon" href="/" />
+
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/flag-icon-css/css/flag-icon.css" />		
+				
+		
+<link type="text/css" rel="stylesheet" href="//qoj.ac/css/font-awesome/5.13.0/all.min.css" />
+				
+				
+				
+				<!-- MathJax -->
+		<script type="text/x-mathjax-config">
+			MathJax.Hub.Config({
+				showProcessingMessages: false,
+				tex2jax: {
+					inlineMath: [["$", "$"], ["\\\\(", "\\\\)"]],
+					processEscapes:true
+				},
+				menuSettings: {
+					zoom: "Hover"
+    			}
+			});
+		</script>
+		<script src="/js/mathjax/MathJax.js?config=TeX-AMS_SVG"></script>
+				
+				
+		
+				
+				
+				
+				
+				<!-- shjs -->
+		<link type="text/css" rel="stylesheet" href="//qoj.ac/css/sh_typical.min.css" />		<script type="text/javascript" src="//qoj.ac/js/sh_main.min.js"></script>		<script type="text/javascript">$(document).ready(function(){sh_highlightDocument()})</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/a11y-light.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+				
+		
+		
+				<!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+		<!--[if lt IE 9]>
+			<script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+			<script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+		<![endif]-->
+		
+		<script type="text/javascript">
+		before_window_unload_message = null;
+		$(window).on('beforeunload', function() {
+			if (before_window_unload_message !== null) {
+			    return before_window_unload_message;
+			}
+		});
+		</script>
+		
+			</head>
+	<body role="document">
+		<div class="container" role="main">
+						<div>
+				<ul class="nav nav-pills float-right" role="tablist">
+									<li class="nav-item dropdown">
+						<a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown">
+<span class="uoj-username" data-user-color="rgb(159, 221, 187)" data-rating="2105" data-nickname="tarjen" data-rated="1">tarjen</span>
+														 						</a>
+						<ul class="dropdown-menu" role="menu">
+							<li role="presentation"><a class="dropdown-item" href="//qoj.ac/user/profile/tarjen"><span class="glyphicon glyphicon-info-sign"></span>My Profile</a></li>
+							<li role="presentation"><a class="dropdown-item" href="//qoj.ac/favourites"><span class="glyphicon glyphicon-star"></span>My Favourites</a></li>
+							<li role="presentation"><a class="dropdown-item" href="//qoj.ac/user/msg/tarjen"><span class="glyphicon glyphicon-envelope"></span>Private Message&nbsp;&nbsp;</a></li>
+							<li role="presentation"><a class="dropdown-item" href="//qoj.ac/user/system-msg"><span class="glyphicon glyphicon-flag"></span>System Message&nbsp;&nbsp;</a></li>
+							<li role="presentation"><a class="dropdown-item" href="//qoj.ac/group/my"><span class="glyphicon glyphicon-user"></span>My Groups</a></li>
+																											</ul>
+					</li>
+					<li class="nav-item" role="presentation"><a class="nav-link" href="//qoj.ac/logout?_token=YTS0JhS9M8ds6Cu36OctuKTCx9Sw6qo0onzwqLdcdvVtwxgK07hBN9IHhD3G">Logout</a></li>
+								</ul>
+				<h1 class="d-none d-sm-block">QOJ.ac</h1>
+				<h1 class="d-block d-sm-none">QOJ</h1>
+			</div>
+			
+			<div class="navbar navbar-light navbar-expand-md bg-light mb-4" role="navigation">
+	<a class="navbar-brand" href="//qoj.ac">QOJ</a>
+	<button type="button" class="navbar-toggler collapsed" data-toggle="collapse" data-target=".navbar-collapse">
+		<span class="navbar-toggler-icon"></span>
+	</button>
+	<div class="collapse navbar-collapse" id="navbarSupportedContent">
+				<ul class="nav navbar-nav mr-auto navbar-transparent">
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/contests"><span class="glyphicon glyphicon-stats"></span> Contests</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/category"><span class="glyphicon glyphicon-folder-close"></span> Category</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/problems"><span class="glyphicon glyphicon-list-alt"></span> Problems</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/submissions"><span class="glyphicon glyphicon-tasks"></span> Submissions</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/hacks"><span class="glyphicon glyphicon-flag"></span> Hack!</a></li>
+			<li class="nav-item"><a class="nav-link" href="//qoj.ac/blogs"><span class="glyphicon glyphicon-book"></span> Blogs</a></li>
+
+		</ul>
+		<form id="form-search-problem" class="form-inline my-2 my-lg-0" method="get">
+			 <div class="input-group">
+				<input type="text" class="form-control" name="search" id="input-search" placeholder="Search the problem set" />  
+				<div class="input-group-append">
+					<button type="submit" class="btn btn-search btn-outline-primary" id="submit-search"><span class="glyphicon glyphicon-search"></span></button>
+				</div>
+			</div>
+		</form>
+			</div><!--/.nav-collapse -->
+</div>
+
+<script type="text/javascript">
+	var zan_link = '';
+	$('#form-search-problem').submit(function(e) {
+		e.preventDefault();
+		
+		url = "//qoj.ac/problems";
+		qs = [];
+		$(['search']).each(function () {
+			if ($('#input-' + this).val()) {
+				qs.push(this + '=' + encodeURIComponent($('#input-' + this).val()));
+			}
+		});
+		if (qs.length > 0) {
+			url += '?' + qs.join('&');
+		}
+		location.href = url;
+	});
+</script>
+
+						
+			<div class="uoj-content">
+<div class="table-responsive"><table class="table table-bordered table-text-center"><thead><tr><th>ID</th><th>Problem</th><th>Submitter</th><th>Result</th><th>Time</th><th>Memory</th><th>Language</th><th>File size</th><th>Submit time</th></tr></thead><tbody><tr><td><a href="/submission/1336269">#1336269</a></td><td><a href="/contest/2521/problem/14501">#14501. 扭蛋</a></td><td><span class="uoj-username" data-user-color="rgb(159, 221, 187)" data-rating="2105" data-nickname="tarjen" data-rated="1">tarjen</span><sup><a href="/contest/2521">#</a></sup></td><td><a href="/submission/1336269" class="uoj-score" data-full="100.000000" data-score="100">AC ✓</a></td><td>1ms</td><td>3852kb</td><td><a href="/submission/1336269">C++20</a></td><td>2.0kb</td><td><small>2025-09-14 01:10:14</small></td></tr></tbody></table></div>
+
+
+<div class="card border-success mb-3"><div class="card-header bg-success"><h4 class="card-title">Judging History</h4></div><div class="card-body"><!-- credit to https://bootsnipp.com/snippets/xrKXW --><div class="list-group timeline"><p class="text-success"><span class="glyphicon glyphicon-ok-circle"></span>This is the latest submission verdict.</p><div class="list-group-item list-group-item-warning"><div class="row"><div class="col-sm-10 vcenter-sm"><ul class="list-group-item-text list-inline text-info"><li class="list-inline-item"><strong>[2025-09-14 01:10:15]</strong></li><li class="list-inline-item">Judged</li><li></li></ul><ul class="list-group-item-text list-inline"><li class="list-inline-item"><strong>Verdict: </strong><a href="/submission/1336269"" class="uoj-score" data-full="100.000000" data-score="100">AC</a></li><li class="list-inline-item"><strong>Time: </strong>1ms</li><li class="list-inline-item"><strong>Memory: </strong>3852kb</li></ul></div><div class="col-sm-2 vcenter-sm text-right"><a href="/submission/1336269"><span class="glyphicon glyphicon-info-sign"></span> Show</a></div></div></div><div class="list-group-item"><ul class="list-group-item-text list-inline text-info"><li class="list-inline-item"><strong>[2025-09-14 01:10:14]</strong></li><li class="list-inline-item">Submitted</li><li></li></ul></div></div></div></div>
+
+		<div class="card border-info mb-3"><div class="card-header bg-info"><h4 class="card-title">answer</h4></div><div class="card-body"><pre><code class="sh_cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+template &lt;typename T1, typename T2&gt;
+ostream&amp; operator&lt;&lt;(ostream&amp; out, pair&lt;T1, T2&gt; p) {
+    out &lt;&lt; &quot;(&quot; &lt;&lt; p.first &lt;&lt; &quot;,&quot; &lt;&lt; p.second &lt;&lt; &quot;)&quot;;
+    return out;
+}
+template &lt;typename T1, typename T2, typename T3&gt;
+ostream&amp; operator&lt;&lt;(ostream&amp; out, tuple&lt;T1, T2, T3&gt; p) {
+    out &lt;&lt; &quot;(&quot; &lt;&lt; get&lt;0&gt;(p) &lt;&lt; &quot;,&quot; &lt;&lt; get&lt;1&gt;(p) &lt;&lt; &quot;,&quot; &lt;&lt; get&lt;2&gt;(p) &lt;&lt; &quot;)&quot;;
+    return out;
+}
+template &lt;typename T&gt;
+ostream&amp; operator&lt;&lt;(ostream&amp; out, vector&lt;T&gt; v) {
+    cout &lt;&lt; &quot;[&quot;;
+    if (!v.empty()) cout &lt;&lt; v[0];
+    for (int i = 1; i &lt; (int)v.size(); i++) cout &lt;&lt; &quot;,&quot; &lt;&lt; v[i];
+    cout &lt;&lt; &quot;]&quot;;
+    return out;
+}
+template &lt;typename T1, typename T2&gt;
+istream&amp; operator&gt;&gt;(istream&amp; in, pair&lt;T1, T2&gt;&amp; p) {
+    in &gt;&gt; p.first &gt;&gt; p.second;
+    return in;
+}
+template &lt;typename T&gt;
+istream&amp; operator&gt;&gt;(istream&amp; in, vector&lt;T&gt;&amp; v) {
+    for (int i = 0; i &lt; (int)v.size(); i++) in &gt;&gt; v[i];
+    return in;
+}
+
+typedef long long ll;
+const int mod = 998244353;
+void add(int&amp; x, int y) {
+    if ((x += y) &gt;= mod) x -= mod;
+}
+void del(int&amp; x, int y) {
+    if ((x -= y) &lt; 0) x += mod;
+}
+
+template &lt;typename T&gt;
+int gmax(T&amp; x, T y) {
+    if (y &gt; x) {
+        x = y;
+        return 1;
+    }
+    return 0;
+}
+
+template &lt;typename T&gt;
+int gmin(T&amp; x, T y) {
+    if (y &lt; x) {
+        x = y;
+        return 1;
+    }
+    return 0;
+}
+
+int solve() {
+    int n, k;
+    cin &gt;&gt; n &gt;&gt; k;
+    vector&lt;int&gt; a(n);
+    for (int i = 0; i &lt; n; i++) cin &gt;&gt; a[i];
+    if (n == 1) return 1;
+    sort(a.begin(), a.end(), greater&lt;int&gt;());
+    int sum = 0, now = 0;
+    for (int i = 0; i &lt; n; i++) {
+        now++;
+        if (sum / k &gt;= n - i - 1) return now;
+        if ((sum + a[i] - 1) / k &gt;= n - i - 1)
+            return now + ((n - i - 1) * k - sum);
+        now += a[i] - 1;
+
+        sum += a[i] - 1;
+    }
+    return now;
+}
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(0);
+    int T;
+    cin &gt;&gt; T;
+    while (T--) cout &lt;&lt; solve() &lt;&lt; &quot;\n&quot;;
+    return 0;
+}
+</code></pre></div><div class="card-footer">Source code, Language: C++20</div></div>			<p class="text-center">
+			This program seems to have a bug. I'll give it some input to test.			<button id="button-display-hack" type="button" class="btn btn-danger btn-xs">Hack!</button>
+		</p>
+		<div id="div-form-hack" style="display:none" class="bot-buffer-md">
+			<form action="/submission/1336269" method="post" class="form-horizontal" id="form-hack" enctype="multipart/form-data"><input type="hidden" name="_token" value="YTS0JhS9M8ds6Cu36OctuKTCx9Sw6qo0onzwqLdcdvVtwxgK07hBN9IHhD3G" /><div class="form-group" id="form-group-input"></div>
+<script type="text/javascript">
+$('#form-group-input').text_file_form_group('input', 'Input data');
+</script><div class="checkbox">
+	<label for="input-use_formatter"><input type="checkbox" id="input-use_formatter" name="use_formatter" checked="checked" /> Help me organize the carriage returns at the end of the file, spaces at the end of lines, and line breaks.</label>
+</div><div class="text-center"><button type="submit" id="button-submit-hack" name="submit-hack" value="hack" class="btn btn-secondary">Submit</button></div></form><script type="text/javascript">
+$(document).ready(function() {
+	$('#form-hack').submit(function(e) {
+		var ok = true;
+		$(this).find("input[type='file']").each(function() {
+			for (var i = 0; i < this.files.length; i++) {
+				if (this.files[i].size > 50 * 1024 * 1024) {
+					$('#div-' + $(this).attr('name')).addClass('has-error');
+					$('#help-' + $(this).attr('name')).text('File size must not exceed 50M');
+					ok = false;
+				} else {
+					$('#div-' + $(this).attr('name')).removeClass('has-error');
+					$('#help-' + $(this).attr('name')).text('');
+				}
+			}
+		});
+		if (ok) {
+			$("#button-submit-hack").addClass('disabled');
+			$(this).submit(function () {
+				return false;
+			});
+		}
+		return ok;
+	});
+});
+</script>		</div>
+		<script type="text/javascript">
+			$(document).ready(function () {
+				$('#button-display-hack').click(function () {
+					$('#div-form-hack').toggle('fast');
+				});
+			});
+		</script>
+	
+	<div class="card border-info mb-3">
+		<div class="card-header bg-info">
+			<h4 class="card-title">
+				Details			</h4>
+		</div>
+		<div class="card-body">
+			<div id="details_details_accordion"><div class="text-right text-muted">Tip: Click on the bar to expand more detailed information</div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_1_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #1: </h4></div><div class="col-sm-2">score: 100</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3828kb</div></div></div><div id="details_details_accordion_collapse_test_1_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+2
+2 2
+1 4
+4 3
+8 7 6 5
+
+</pre>
+<h4>output (stdout):</h4><pre>
+3
+9
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 2 number(s): &quot;3 9&quot;
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_2_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #2: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3708kb</div></div></div><div id="details_details_accordion_collapse_test_2_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+1001
+4 421
+2248 815 343 1660
+5 4
+1 9 4 8 8
+4 4687
+2098 1261 2667 524
+1 1500
+2913
+2 2320
+1046 2340
+4 1118
+1441 793 1069 570
+4 4
+8 5 4 7
+2 2004
+2092 666
+1 62
+122
+5 276
+1735 1273 218 373 2113
+2 1116
+1017 1176
+4 1972
+2283 574 2692 165
+4 4797
+2043 626 148 361
+1 1
+2
+5 2911
+652 2281 1196 1301 1260
+1 963
+16...
+</pre>
+<h4>output (stdout):</h4><pre>
+1264
+14
+4766
+1
+2321
+2238
+10
+2005
+1
+1105
+1117
+3946
+3031
+1
+4843
+1
+8
+5
+3065
+4294
+393
+11
+10
+3108
+3
+1
+11
+2524
+5650
+3
+1
+2644
+639
+7
+3646
+4460
+343
+2388
+66
+5705
+619
+3352
+5
+1
+6680
+1
+2613
+5743
+2247
+1947
+1
+4424
+140
+2785
+2162
+1030
+2
+6128
+8
+1764
+84
+1
+4
+2842
+742
+2
+1
+1
+2958
+1
+2306
+258
+1358
+9
+2216
+2
+4871
+2059
+3
+903
+...
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 1001 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_3_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #3: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3816kb</div></div></div><div id="details_details_accordion_collapse_test_3_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+600
+5 2766
+1111 1084 491 226 2730
+5 3
+3 1 4 1 1
+5 3161
+1274 2269 2615 2065 2028
+5 4963
+2593 2724 91 998 1526
+5 4
+10 2 4 8 5
+5 4531
+639 306 2235 1911 1855
+5 3223
+2856 2382 825 1489 2541
+5 1171
+2308 933 1721 1752 1561
+5 5
+6 2 10 7 1
+5 1637
+551 2678 1461 317 2182
+5 5729
+721 957 1546 1137 2394
+5 2
+1 2 4...
+</pre>
+<h4>output (stdout):</h4><pre>
+4926
+9
+6325
+6844
+14
+6002
+6449
+3515
+17
+4861
+5733
+8
+5
+3731
+17
+1809
+9
+7078
+2045
+2896
+5058
+3400
+3770
+5729
+417
+11
+17
+5513
+17
+4921
+14
+8894
+5441
+3152
+14
+8155
+4479
+7199
+5
+6211
+4534
+6552
+5
+5531
+11
+5267
+11
+5827
+7116
+6204
+7267
+9
+2700
+5919
+529
+14
+5655
+4409
+9
+5024
+1697
+4739
+5516
+14
+4545
+5789
+5
+7206
+7609
+2281
+601...
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 600 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_4_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #4: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3720kb</div></div></div><div id="details_details_accordion_collapse_test_4_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+554
+3 1713
+908 894 1233
+2 198
+1103 2928
+9 292
+1316 2112 1231 1989 1168 394 1328 487 634
+3 4176
+2727 2679 1015
+5 437
+720 1815 149 577 48
+6 5435
+1883 1647 634 18 2746 2146
+4 2492
+1424 2792 1030 1400
+10 3204
+1289 1186 1796 859 1471 489 1950 2196 545 123
+7 3659
+961 2056 2163 19 2844 763 1122
+1 1
+1
+1 1
+1...
+</pre>
+<h4>output (stdout):</h4><pre>
+1715
+199
+2113
+4178
+1749
+8423
+4217
+9889
+8186
+1
+1
+88
+1951
+9
+1651
+12578
+10350
+666
+5005
+667
+9256
+12406
+323
+1551
+11033
+6868
+2048
+1
+1
+5139
+1
+31
+9339
+17154
+4392
+10570
+29
+3
+1408
+9604
+7206
+45
+341
+10376
+1
+88
+9
+3
+14
+9903
+11435
+1
+6630
+3
+1487
+6928
+313
+5142
+26
+4825
+8352
+2
+13
+17473
+9368
+5120
+5
+16
+10884
+14
+9
+5
+652
+...
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 554 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_5_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #5: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3852kb</div></div></div><div id="details_details_accordion_collapse_test_5_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+300
+10 5598
+1689 2326 1473 821 2938 207 607 95 128 620
+10 5909
+2929 864 1250 1239 2644 655 312 6 1615 2144
+10 5278
+1921 825 2708 478 722 2214 2429 2515 2286 1203
+10 6584
+614 1251 1386 1122 1928 2900 1442 739 150 2251
+10 8
+12 18 8 8 14 5 1 20 9 19
+10 8333
+825 2159 275 2115 2639 1494 686 1571 2286 358...
+</pre>
+<h4>output (stdout):</h4><pre>
+10682
+12686
+15277
+13020
+58
+13776
+4770
+10
+10384
+8040
+10618
+14844
+10
+11800
+34
+34
+15297
+10540
+19
+9531
+5687
+8458
+14747
+52
+13818
+26
+11320
+10072
+10070
+19
+12242
+52
+58
+19
+15770
+12860
+40
+10649
+11147
+59
+11302
+26
+40
+54
+54
+15267
+14108
+12746
+13906
+16600
+1126
+5939
+4866
+7975
+3410
+10
+15221
+38
+14732
+10109
+26
+12919
+1...
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 300 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_6_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #6: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3836kb</div></div></div><div id="details_details_accordion_collapse_test_6_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+1
+3000 1664
+3000 70 153 1968 262 3000 3000 3000 3000 3000 3000 2727 1880 3000 3000 2811 2653 3000 2243 3000 3000 3000 3000 1383 3000 210 3000 2403 3000 472 1274 3000 3000 946 178 3000 811 918 3000 1 704 1165 2469 1278 772 3000 1731 3000 514 899 3000 1632 3000 3000 2772 1728 2521 3000 3000 64 3000 30...
+</pre>
+<h4>output (stdout):</h4><pre>
+3210927
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 1 number(s): &quot;3210927&quot;
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_7_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #7: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3728kb</div></div></div><div id="details_details_accordion_collapse_test_7_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+1
+3000 316
+1989 1548 407 1937 437 1484 2335 487 1940 2301 137 264 2395 960 2574 265 2375 1996 1992 514 331 332 1865 1399 1164 2071 2434 1082 747 1447 2861 1358 2247 2650 908 853 1752 1132 2216 1220 1781 2323 658 1554 1095 2482 2349 1812 924 1950 1081 452 109 52 1362 2349 1376 2769 2584 1169 2262 120...
+</pre>
+<h4>output (stdout):</h4><pre>
+853500
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 1 number(s): &quot;853500&quot;
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_8_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #8: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3820kb</div></div></div><div id="details_details_accordion_collapse_test_8_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+1
+3000 56535
+2457 735 729 660 713 125 2472 1491 669 1188 2340 1227 2697 1718 2877 2489 1823 1393 749 1740 1291 1840 204 2722 2607 1385 932 2850 952 1973 1717 2153 87 356 2059 1637 2928 1990 2539 2316 1334 1266 970 1846 1341 1203 2022 2263 2279 1550 2 367 1080 1005 2094 441 2970 1423 573 2095 1786 30...
+</pre>
+<h4>output (stdout):</h4><pre>
+4454083
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 1 number(s): &quot;4454083&quot;
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_9_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #9: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3828kb</div></div></div><div id="details_details_accordion_collapse_test_9_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+1
+3000 1
+2997 3000 2997 3000 2998 3000 2998 3000 2996 2995 3000 2995 2995 2995 3000 2999 2995 2997 2996 2999 2995 2996 2995 2997 2997 2996 2997 2997 2996 3000 2996 2998 2995 2998 2995 2997 2999 2995 3000 2997 2995 2997 2996 2995 2999 3000 2996 2995 2996 2999 2996 2996 2997 2999 2997 2998 2999 2996 2...
+</pre>
+<h4>output (stdout):</h4><pre>
+3000
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 1 number(s): &quot;3000&quot;
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_10_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #10: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3828kb</div></div></div><div id="details_details_accordion_collapse_test_10_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+1
+3000 2
+2997 2996 2999 2999 2997 2997 2996 2998 2996 2997 2996 2999 2998 2996 2997 3000 2996 2998 2998 2996 2995 2995 2996 2998 3000 2995 2996 2999 2998 3000 2996 2999 2997 2999 2997 2997 2996 2999 2998 3000 2997 3000 2997 2996 2997 3000 3000 2997 2998 2997 2998 2995 2995 2999 2997 2999 2996 2995 2...
+</pre>
+<h4>output (stdout):</h4><pre>
+5998
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 1 number(s): &quot;5998&quot;
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_11_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #11: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3820kb</div></div></div><div id="details_details_accordion_collapse_test_11_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+1
+3000 299998
+2996 3000 2997 2996 3000 3000 2995 2998 3000 2995 3000 2995 2997 3000 3000 2998 3000 2995 2996 2998 2998 2995 2997 2998 2997 2997 2997 2995 2996 3000 2996 2996 2998 2997 3000 2995 2997 2995 2999 2996 2995 2995 2996 2996 2995 2996 2995 2997 2995 3000 2996 2997 2995 3000 2998 2999 2996 2...
+</pre>
+<h4>output (stdout):</h4><pre>
+8902638
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 1 number(s): &quot;8902638&quot;
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_12_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #12: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3828kb</div></div></div><div id="details_details_accordion_collapse_test_12_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+3000
+1 299996
+3000
+1 299997
+2996
+1 299998
+2995
+1 299995
+2996
+1 299995
+2999
+1 299996
+2998
+1 299996
+2998
+1 299995
+2995
+1 299997
+3000
+1 299995
+2998
+1 299999
+3000
+1 299995
+2996
+1 299996
+2998
+1 299995
+2999
+1 299999
+2998
+1 299998
+2999
+1 299999
+2997
+1 299995
+2996
+1 300000
+2999
+1 299995
+2995
+1 299995
+2999
+1...
+</pre>
+<h4>output (stdout):</h4><pre>
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+...
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 3000 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_13_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #13: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3728kb</div></div></div><div id="details_details_accordion_collapse_test_13_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+3000
+1 496
+1044
+1 1
+2
+1 5700
+1
+1 170
+2173
+1 3820
+1510
+1 302
+954
+1 1
+2
+1 1
+2
+1 1
+2
+1 1
+2
+1 13
+1209
+1 344
+2248
+1 730
+991
+1 1
+2
+1 1
+2
+1 2310
+493
+1 2912
+2547
+1 1
+1
+1 516
+1972
+1 1
+1
+1 1
+2
+1 283
+618
+1 3
+39
+1 951
+1757
+1 5160
+651
+1 292
+1172
+1 1
+2
+1 68
+492
+1 3942
+162
+1 1
+2
+1 646
+1346
+1 4316
+364
+1 4827
+2306
+1...
+</pre>
+<h4>output (stdout):</h4><pre>
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+1
+...
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 3000 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_14_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #14: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3844kb</div></div></div><div id="details_details_accordion_collapse_test_14_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+187
+26 9
+32 3 32 24 23 16 39 49 42 49 13 2 33 22 33 24 15 11 13 35 43 5 3 23 28 47
+24 19
+37 46 17 46 18 26 20 45 25 47 9 26 26 16 32 28 39 7 16 13 41 31 48 11
+4 1947
+2841 790 2191 631
+10 7
+15 13 10 6 11 3 9 4 19 12
+23 1029
+553 2466 1356 2897 981 831 2723 1164 2446 2886 539 1469 1439 2303 1690 1077 2...
+</pre>
+<h4>output (stdout):</h4><pre>
+194
+313
+3896
+48
+16880
+18392
+11601
+287
+3806
+12155
+6933
+85
+428
+10
+44283
+155
+77
+27864
+9184
+4909
+12
+1
+1289
+10337
+14821
+259
+11390
+34545
+33070
+44629
+30516
+17647
+1
+6501
+39625
+30747
+20
+1351
+126
+14665
+405
+30719
+84
+4442
+36614
+450
+1
+15
+42
+12901
+8
+12365
+350
+21864
+5
+23771
+217
+14
+1
+382
+1
+5339
+48526
+38230
+19591
+15...
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 187 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_15_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #15: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3532kb</div></div></div><div id="details_details_accordion_collapse_test_15_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+81
+4 2
+6 1 7 3
+33 12813
+2272 251 1402 74 1099 55 1918 415 990 1286 1951 1534 916 2359 2177 600 2643 141 2726 2707 1478 1544 2328 2863 1050 739 1472 2105 609 2659 1474 2067 1698
+1 1
+1
+27 8344
+1425 791 629 1633 1882 23 223 1468 1925 2155 1868 1829 971 2561 85 1675 512 2753 208 2354 2316 2392 919 1384 ...
+</pre>
+<h4>output (stdout):</h4><pre>
+7
+49082
+1
+34269
+64645
+41752
+1
+726
+51728
+85072
+27222
+1801
+1844
+328
+19460
+79512
+18322
+149
+37734
+52653
+4411
+61779
+2145
+7633
+811
+1
+49751
+63977
+70476
+1602
+1522
+171
+28150
+98156
+66814
+27014
+1357
+40471
+14015
+2481
+802
+752
+82150
+177
+1052
+35501
+338
+51679
+238
+96052
+35397
+22181
+37183
+91396
+83227
+49436
+117
+92162
+...
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 81 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_16_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #16: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3828kb</div></div></div><div id="details_details_accordion_collapse_test_16_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+35
+99 57
+107 105 17 160 35 168 56 45 6 1 54 39 181 160 20 90 101 141 44 93 15 68 173 144 67 87 30 22 130 98 159 76 182 8 84 18 34 77 33 104 78 163 121 12 47 86 152 85 194 84 98 108 112 175 76 158 13 153 166 28 85 171 34 93 133 191 34 189 172 198 77 41 145 151 139 179 150 144 42 7 83 171 147 119 35 3...
+</pre>
+<h4>output (stdout):</h4><pre>
+4243
+147170
+198329
+595
+82675
+51448
+423
+269951
+11405
+40486
+392
+150421
+1285
+42096
+159559
+236448
+315937
+3888
+7376
+113029
+94638
+69132
+60365
+908
+216468
+270951
+28550
+93130
+1
+18298
+96027
+93449
+1809
+7029
+12616
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 35 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_17_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #17: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3728kb</div></div></div><div id="details_details_accordion_collapse_test_17_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+18
+56 21
+14 24 56 66 63 94 12 2 14 90 46 47 97 40 13 112 111 72 10 111 50 80 74 107 107 23 23 23 46 107 63 25 17 92 3 28 50 111 90 110 110 75 91 3 27 15 70 32 31 90 28 48 86 66 35 83
+15 2558
+2083 2442 1304 2284 2355 293 422 2740 532 1533 310 314 2245 226 1583
+12 7040
+646 661 2013 2162 2085 2199 2048...
+</pre>
+<h4>output (stdout):</h4><pre>
+987
+17266
+17586
+349491
+326440
+435238
+32129
+397592
+78283
+17584
+7185
+1
+26966
+178587
+101337
+31165
+64996
+200597
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 18 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_18_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #18: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3828kb</div></div></div><div id="details_details_accordion_collapse_test_18_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+18
+213 3771
+791 1884 1995 511 1227 1834 2687 758 2832 532 636 1268 318 1458 1014 1194 885 1286 1869 2166 583 112 2596 1105 1113 1770 2245 1567 1742 2797 980 2179 235 2459 663 1352 2084 2378 2077 1809 1966 2855 763 1330 2899 2928 864 2892 2889 2777 1403 933 1715 2193 639 638 2254 50 1662 163 2789 173...
+</pre>
+<h4>output (stdout):</h4><pre>
+283227
+1
+17
+1
+861550
+4162
+154487
+1
+43638
+350018
+20115
+115
+1687834
+17
+1
+53058
+7752
+14096
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 18 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_19_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #19: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3820kb</div></div></div><div id="details_details_accordion_collapse_test_19_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+7
+7 5
+4 13 14 5 8 10 8
+1 219
+1868
+8 7
+3 8 11 10 8 14 2 3
+2897 150434
+2680 2557 2086 364 1085 2014 932 2434 182 1684 2577 1450 2313 1227 797 489 1552 225 2916 849 739 1563 1966 1207 1322 1454 1023 2532 1299 1326 1192 605 1618 2282 108 635 2236 2653 156 1892 835 1935 2140 688 829 891 1403 2028 1797 10...
+</pre>
+<h4>output (stdout):</h4><pre>
+27
+1
+36
+4318811
+2512
+28895
+80726
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 7 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_20_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #20: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3708kb</div></div></div><div id="details_details_accordion_collapse_test_20_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+7
+197 189450
+1606 2825 289 2227 1116 2416 685 797 2642 660 2206 1850 1103 549 1253 1188 903 2656 729 754 945 2997 2443 1854 793 954 1600 855 232 2646 2370 2848 855 2791 2391 1983 2704 2157 1360 2287 1325 2524 692 1950 2455 1294 282 2368 1096 2975 2618 1202 593 471 261 1496 1093 2124 1168 223 1700 26...
+</pre>
+<h4>output (stdout):</h4><pre>
+288246
+3245
+78
+312263
+195277
+3219092
+7140
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 7 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_21_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #21: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3720kb</div></div></div><div id="details_details_accordion_collapse_test_21_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+12
+1 1
+1
+2481 679
+1835 2814 2804 2519 1916 2450 2511 218 2205 936 693 839 2819 401 2043 2370 1559 2604 237 28 573 931 419 336 464 2053 438 1903 1837 442 1751 1781 2243 2090 65 1610 2833 1782 2994 2633 1416 709 1374 2908 1293 793 2540 318 1529 623 2543 1775 1873 539 1038 1684 365 1785 2292 2685 605 5...
+</pre>
+<h4>output (stdout):</h4><pre>
+1
+1346277
+5491
+1
+46129
+144854
+17345
+110647
+167502
+1849
+2480
+74638
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 12 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_22_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #22: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3596kb</div></div></div><div id="details_details_accordion_collapse_test_22_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+10
+699 12
+1025 494 809 301 1360 1228 294 237 1089 748 291 1358 410 271 519 378 681 1332 461 902 1360 726 367 683 1304 1373 1277 744 507 1307 472 1316 1196 707 322 752 376 350 614 390 1098 1116 334 1261 727 561 1105 1158 505 1315 930 726 1121 1080 793 1092 1359 1326 3 1202 217 885 797 756 1233 1200 1...
+</pre>
+<h4>output (stdout):</h4><pre>
+8322
+965
+2740
+1211
+1
+54628
+19346
+447298
+2355220
+43521
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 10 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_23_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Test #23: </h4></div><div class="col-sm-2">score: 0</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 1ms</div><div class="col-sm-3">memory: 3680kb</div></div></div><div id="details_details_accordion_collapse_test_23_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+11
+86 568
+2367 523 2246 1075 2062 2834 2383 2761 1925 2951 803 146 2860 2772 1730 418 2299 2506 449 596 857 1203 2936 1628 2705 903 1346 2932 40 888 2864 1584 961 2957 2934 26 833 1251 1573 830 299 687 2560 831 604 469 511 329 1536 1692 838 1228 1436 2448 327 2800 2242 1671 2916 891 1160 149 1718 24...
+</pre>
+<h4>output (stdout):</h4><pre>
+40343
+16081
+55817
+971572
+2014
+11334
+124137
+1
+369097
+33819
+873589
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 11 numbers
+
+</pre>
+</div></div></div>
+<div class="card card-uoj-accepted mb-3"><div class="card-header" data-toggle="collapse" data-parent="#details_details_accordion" data-target="#details_details_accordion_collapse_test_-1_Extra_Test"><div class="row"><div class="col-sm-2"><h4 class="card-title">Extra Test #1: </h4></div><div class="col-sm-2">score: 100</div><div class="col-sm-2">Accepted</div><div class="col-sm-3">time: 0ms</div><div class="col-sm-3">memory: 3840kb</div></div></div><div id="details_details_accordion_collapse_test_-1_Extra_Test" class="card-collapse collapse"><div class="card-body">
+<h4>input (stdin):</h4><pre>
+2
+2 2
+1 4
+4 3
+8 7 6 5
+
+</pre>
+<h4>output (stdout):</h4><pre>
+3
+9
+
+</pre>
+<h4>error (stderr):</h4><pre>
+
+</pre>
+<h4>result:</h4><pre>
+ok 2 number(s): &quot;3 9&quot;
+
+</pre>
+</div></div></div>
+</div>					</div>
+	</div>
+
+
+
+			</div>
+						<div class="uoj-footer">
+				<div class="btn-group dropright mb-3">
+					<button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-toggle="dropdown">
+						<span class="glyphicon glyphicon-globe"></span> English					</button>
+					<div class="dropdown-menu">
+					<a class="dropdown-item" href="//qoj.ac/submission/1336269?locale=ar">العربية</a>
+						<a class="dropdown-item" href="//qoj.ac/submission/1336269?locale=en">English</a>
+						<a class="dropdown-item" href="//qoj.ac/submission/1336269?locale=es">Español</a>
+						<a class="dropdown-item" href="//qoj.ac/submission/1336269?locale=fr">Français</a>
+						<a class="dropdown-item" href="//qoj.ac/submission/1336269?locale=ja">日本語</a>
+						<a class="dropdown-item" href="//qoj.ac/submission/1336269?locale=zh-cn">简体中文</a>
+						<a class="dropdown-item" href="//qoj.ac/submission/1336269?locale=zh-tw">繁體中文</a>
+					</div>
+				</div>
+				
+				<ul class="list-inline"><li class="list-inline-item">QOJ.ac</li> | <li class="list-inline-item"> <a href="https://qoj.ac">QOJ 4.5.43.0.dev</a> | <a href="https://github.com/UniversalOJ/UOJ-System" target="_blank">Based on UOJ - OpenSource Project</a></li></ul>
+				<p>Made with ❤️ by <a class="uoj-username" href="/user/profile/Qingyu" style="color:rgb(255, 51, 204)">Qingyu✨</a></p>
+				<p>Server Time: 2026-06-13 16:25:06 </a></p>
+			</div>
+					</div>
+		<!-- /container -->
+	<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"62952307bd8640429081742c37f14f92","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a0afb3e9cd2007e8',t:'MTc4MTMzOTEwNg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

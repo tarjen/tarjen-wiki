@@ -92,6 +92,7 @@ class FetchResult:
     errors: int = 0
     duration_seconds: float = 0.0
     files: list[dict] = field(default_factory=list)
+    error_details: list[dict] = field(default_factory=list)  # [{sid, user, prob, msg}]
 
     def to_dict(self) -> dict:
         return {
@@ -101,6 +102,7 @@ class FetchResult:
             "errors": self.errors,
             "duration_seconds": self.duration_seconds,
             "files": self.files,
+            "error_details": self.error_details,
         }
 
 
@@ -193,6 +195,12 @@ def fetch_codes(
             code, lang = client.get_submission_code(s.submission_id)
         except Exception as e:
             result.errors += 1
+            result.error_details.append({
+                "submission_id": s.submission_id,
+                "user": s.user,
+                "problem": s.problem,
+                "error": f"{type(e).__name__}: {e}",
+            })
             continue
 
         # 决定 source

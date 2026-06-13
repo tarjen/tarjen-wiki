@@ -774,6 +774,14 @@ def codes(cid, platform, user, only_mine, only_watchlist, no_watchlist,
         by_src[f["source"]] += 1
     for src, n in sorted(by_src.items()):
         click.echo(f"  [{src}] {n} 份")
+    # error details (前 10 条)
+    if result.error_details:
+        click.echo("")
+        click.echo("错误详情 (前 10 条):")
+        for e in result.error_details[:10]:
+            click.echo(f"  - #{e['submission_id']} {e['user']}/{e['problem']}: {e['error']}")
+        if len(result.error_details) > 10:
+            click.echo(f"  ... 还有 {len(result.error_details) - 10} 条")
 
 
 @cli.command("codes-list")
